@@ -1296,7 +1296,10 @@ class PromptQueue:
 
     def wipe_queue(self):
         with self.mutex:
+            dropped_prompt_ids = [item[1] for item in self.queue]
             self.queue = []
+            for prompt_id in dropped_prompt_ids:
+                self.server.unregister_prompt_metadata(prompt_id)
             self.server.queue_updated()
 
     def delete_queue_item(self, function):
@@ -1306,8 +1309,9 @@ class PromptQueue:
                     if len(self.queue) == 1:
                         self.wipe_queue()
                     else:
-                        self.queue.pop(x)
+                        deleted = self.queue.pop(x)
                         heapq.heapify(self.queue)
+                        self.server.unregister_prompt_metadata(deleted[1])
                     self.server.queue_updated()
                     return True
         return False

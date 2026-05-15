@@ -44,10 +44,7 @@ from app.model_manager import ModelFileManager
 from app.custom_node_manager import CustomNodeManager
 from app.subgraph_manager import SubgraphManager
 from app.node_replace_manager import NodeReplaceManager
-from app.prompt_metadata import (
-    extract_envelope_from_extra_data,
-    inject_envelope,
-)
+from app.prompt_metadata import PromptMetadataStore
 from typing import Optional, Union
 from api_server.routes.internal.internal_routes import InternalRoutes
 from protocol import BinaryEventTypes
@@ -257,10 +254,10 @@ class PromptServer():
         self.last_prompt_id = None
         self.client_id = None
 
-        # prompt_id -> metadata envelope captured at submission and injected
-        # into outbound execution events. Keeps the workflow scope (and any
-        # other client-supplied tags) out of the execution layer.
-        self._prompt_metadata: dict[str, dict] = {}
+        # Bounded prompt_id -> envelope store. Populated at submission,
+        # drained on completion/cancel. Keeps workflow scope (and other
+        # client-supplied tags) out of the execution layer.
+        self._prompt_metadata = PromptMetadataStore()
 
         self.on_prompt_handlers = []
 
@@ -285,10 +282,12 @@ class PromptServer():
                 await self.send("status", {"status": self.get_queue_info(), "sid": sid}, sid)
                 # On reconnect if we are the currently executing client send the current node
                 if self.client_id == sid and self.last_node_id is not None:
-                    await self.send("executing", self._inject_prompt_metadata({
-                        "node": self.last_node_id,
-                        "prompt_id": self.last_prompt_id,
-                    }), sid)
+                    payload: dict = {"node": self.last_node_id}
+                    if self.last_prompt_id is not None:
+                        payload["prompt_id"] = self.last_prompt_id
+                    await self.send(
+                        "executing", self._inject_prompt_metadata(payload), sid
+                    )
 
                 # Flag to track if we've received the first message
                 first_message = True
@@ -1233,17 +1232,16 @@ class PromptServer():
     def register_prompt_metadata(self, prompt_id: str, extra_data) -> None:
         """Record per-prompt metadata for injection into outbound execution
         events. Called at submission, before the prompt is queued."""
-        envelope = extract_envelope_from_extra_data(extra_data)
-        if envelope is not None:
-            self._prompt_metadata[prompt_id] = envelope
+        self._prompt_metadata.register(prompt_id, extra_data)
 
     def unregister_prompt_metadata(self, prompt_id: str) -> None:
         """Drop the per-prompt metadata envelope. Called after the prompt
-        has finished executing and its terminal events have been queued."""
-        self._prompt_metadata.pop(prompt_id, None)
+        has finished executing and its terminal events have been queued,
+        or when the prompt is cancelled before reaching the worker."""
+        self._prompt_metadata.unregister(prompt_id)
 
     def _inject_prompt_metadata(self, data):
-        return inject_envelope(data, self._prompt_metadata.get)
+        return self._prompt_metadata.inject(data)
 
     def send_sync(self, event, data, sid=None):
         data = self._inject_prompt_metadata(data)
