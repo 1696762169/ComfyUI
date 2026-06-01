@@ -26,9 +26,7 @@ class DynamicPrompt:
         self.ephemeral_prompt = {}
         self.ephemeral_parents = {}
         self.ephemeral_display = {}
-        # Lazily-built type resolver, scoped to this DynamicPrompt's lifetime.
-        # Invalidated whenever the graph mutates via add_ephemeral_node.
-        self._type_resolver = None
+        self._type_resolver = None  # lazy; invalidated by add_ephemeral_node
 
     def get_node(self, node_id):
         if node_id in self.ephemeral_prompt:
@@ -44,9 +42,8 @@ class DynamicPrompt:
         self.ephemeral_prompt[node_id] = node_info
         self.ephemeral_parents[node_id] = parent_id
         self.ephemeral_display[node_id] = display_id
-        # Conservatively invalidate the entire resolver cache. Selective
-        # downstream invalidation would require topological info we don't have
-        # here cheaply; the resolver's cache is small and easy to rebuild.
+        # Selective downstream invalidation would need topological info; the
+        # cache is small, so just wipe it.
         if self._type_resolver is not None:
             self._type_resolver.invalidate()
 

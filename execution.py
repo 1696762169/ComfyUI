@@ -84,7 +84,6 @@ class IsChangedCache:
             return self.is_changed[node_id]
 
         # Intentionally do not use cached outputs here. We only want constants in IS_CHANGED.
-        # Pass dynprompt so the TypeResolver can resolve link types for V3 dynamic schemas.
         input_data_all, _, v3_data = get_input_data(node["inputs"], class_def, node_id, None, self.dynprompt)
         try:
             is_changed = await _async_map_node_over_list(self.prompt_id, node_id, class_def, input_data_all, is_changed_name, v3_data=v3_data)
@@ -159,11 +158,7 @@ def get_input_data(inputs, class_def, unique_id, execution_list=None, dynprompt=
     hidden_inputs_v3 = {}
     valid_inputs = class_def.INPUT_TYPES()
     if is_v3:
-        # Build the type-resolution map for this node so dynamic schemas can
-        # branch on resolved upstream types (and not only on literal values).
-        # When no DynamicPrompt is available (e.g. some IsChangedCache paths
-        # in tests), live_input_types stays None and only literal-driven
-        # dynamic types continue to work.
+        # Let dynamic schemas branch on resolved upstream types, not just literal values.
         live_input_types = None
         if dynprompt is not None and hasattr(dynprompt, "get_type_resolver"):
             live_input_types = dynprompt.get_type_resolver().compute_live_input_types(unique_id)
@@ -833,10 +828,8 @@ class PromptExecutor:
 async def validate_inputs(prompt_id, prompt, item, validated, visiting=None, type_resolver=None):
     """Validate inputs for a single node, recursing into upstream nodes.
 
-    ``type_resolver`` (a ``comfy_execution.type_resolver.TypeResolver``) is
-    built once at the top of the recursion and reused so MatchType chains are
-    only walked once. It also gives V3 dynamic schemas an accurate map of
-    resolved upstream types for API-submitted workflows.
+    ``type_resolver`` is built once at the top of recursion and shared so
+    MatchType chains are only walked once per prompt.
     """
     if visiting is None:
         visiting = []
@@ -929,10 +922,8 @@ async def validate_inputs(prompt_id, prompt, item, validated, visiting=None, typ
 
             o_id = val[0]
             o_class_type = prompt[o_id]['class_type']
-            # Resolve the upstream output's effective type through the
-            # TypeResolver. This walks MatchType/template chains, so an API
-            # workflow without frontend-injected type metadata still gets the
-            # same answer the UI does.
+            # Walks MatchType/template chains so API workflows without
+            # frontend-injected type metadata get the same answer as the UI.
             received_type = type_resolver.resolve_output_type(o_id, val[1])
             received_types[x] = received_type
             if 'input_types' not in validate_function_inputs and not validate_node_input(received_type, input_type):
@@ -1178,8 +1169,7 @@ async def validate_prompt(prompt_id, prompt, partial_execution_list: Union[list[
     errors = []
     node_errors = {}
     validated = {}
-    # Share one TypeResolver across all output validations so MatchType chains
-    # are only walked once per prompt.
+    # Shared across output validations so MatchType chains walk only once.
     from comfy_execution.type_resolver import TypeResolver
     type_resolver = TypeResolver(prompt)
     for o in outputs:

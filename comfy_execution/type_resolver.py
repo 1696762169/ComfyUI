@@ -1,22 +1,12 @@
 """Server-side type resolver for prompt graphs.
 
-Resolves the concrete io_type of an output slot or input slot by walking the
-prompt graph. Handles:
+Resolves the concrete io_type of any output/input slot by walking the prompt
+graph. Handles V1/V3 ``RETURN_TYPES``, V3 ``MatchType`` template chains, and
+falls back to ``AnyType`` (with a one-shot warning) on cycles, depth overflow,
+or unresolvable wildcards.
 
-  * Static V1/V3 ``RETURN_TYPES`` (returned as-is).
-  * V3 ``MatchType.Output`` (resolved by walking inputs that share the same
-    ``template_id`` until a concrete type is found).
-  * Cycles and unbounded recursion (terminates at ``AnyType`` with a one-shot
-    warning).
-  * Unknown / unresolvable / wildcard outputs (fall back to ``AnyType`` with a
-    one-shot warning).
-
-The resolver works against either a raw prompt dict
-(``{node_id: {"class_type": str, "inputs": dict}}``) or a
-``comfy_execution.graph.DynamicPrompt`` instance.
-
-All resolved values are plain strings, so the resolver state is trivially
-serializable across processes if needed.
+Works against either a raw prompt dict or a ``DynamicPrompt``. All resolved
+values are strings, so resolver state is cross-process serializable.
 """
 
 from __future__ import annotations
@@ -29,30 +19,23 @@ from comfy_api.internal import _ComfyNodeInternal
 
 
 def _parse_link(val: Any) -> tuple[str, int] | None:
-    """Return (src_node_id, src_slot_idx) if ``val`` is a well-formed link.
+    """Return ``(src_node_id, src_slot_idx)`` if ``val`` is a well-formed link, else ``None``.
 
-    A link in the prompt schema is a length-2 list/tuple ``[node_id, slot_idx]``
-    where ``node_id`` is a string and ``slot_idx`` is a non-negative int.
-    Anything else (including ``[node_id, "0"]`` from malformed API JSON) returns
-    ``None`` so callers can fall back to AnyType instead of crashing.
+    A link is ``[node_id: str, slot_idx: int]``. Malformed shapes return ``None``
+    so callers can fall back to AnyType rather than raise.
     """
     if not isinstance(val, (list, tuple)) or len(val) != 2:
         return None
     src_node, src_slot = val[0], val[1]
     if not isinstance(src_node, str):
         return None
-    # bool is a subclass of int — reject it to avoid treating True/False as slot 1/0.
+    # bool is a subclass of int — reject so True/False aren't read as slot 1/0.
     if isinstance(src_slot, bool) or not isinstance(src_slot, int):
         return None
     return src_node, src_slot
 
-# Sentinel for "type is unknown / wildcard". Matches AnyType.io_type ("*").
 ANY_TYPE: str = io.AnyType.io_type
-
-# Hard cap on resolver recursion depth. MatchType chains should never be
-# anywhere near this deep; this is a belt-and-suspenders guard against malformed
-# graphs and pathological cycles.
-MAX_RESOLVE_DEPTH: int = 64
+MAX_RESOLVE_DEPTH: int = 64  # belt-and-suspenders cap; real MatchType chains stay tiny
 
 
 class TypeResolver:
@@ -90,8 +73,7 @@ class TypeResolver:
 
     @staticmethod
     def _get_class_def(class_type: str):
-        # Local import to avoid a hard import-cycle between nodes.py and
-        # comfy_execution at module-load time.
+        # Local import: nodes <-> comfy_execution would cycle at import time.
         import nodes
         return nodes.NODE_CLASS_MAPPINGS.get(class_type)
 
@@ -112,8 +94,7 @@ class TypeResolver:
         """Clear all cached resolutions. Cheap; call after any graph mutation."""
         self._output_cache.clear()
         self._is_output_list_cache.clear()
-        # Intentionally do NOT clear self._warned: those messages are already
-        # logged and re-warning would just spam the log.
+        # Keep self._warned: re-emitting already-logged warnings would just spam.
 
     def invalidate_node(self, node_id: str) -> None:
         """Clear cached entries for a single node (e.g. after node-level expand)."""
@@ -131,9 +112,7 @@ class TypeResolver:
         out-of-range slot, missing node, malformed link, or unresolved
         MatchType template.
         """
-        # Guard against malformed callers passing non-int slot indices (e.g.
-        # API JSON that sent a string). Falling back to AnyType is safer than
-        # raising TypeError mid-validation.
+        # Degrade gracefully on non-int slot_idx (e.g. malformed API JSON).
         if isinstance(slot_idx, bool) or not isinstance(slot_idx, int):
             return ANY_TYPE
 
@@ -165,15 +144,13 @@ class TypeResolver:
 
         declared = return_types[slot_idx]
 
-        # V3 nodes may have MatchType outputs that need to be traced through
-        # the schema. V1 nodes (and V3 nodes with plain outputs) just use the
-        # declared RETURN_TYPES string.
+        # Only V3 schemas carry MatchType template info; V1 RETURN_TYPES are
+        # always concrete strings.
         resolved = declared
         if isinstance(class_def, type) and issubclass(class_def, _ComfyNodeInternal):
             schema = getattr(class_def, "SCHEMA", None)
             if schema is None:
-                # Trigger schema computation. RETURN_TYPES would have done this
-                # already, but be defensive.
+                # RETURN_TYPES access above usually populates SCHEMA — be defensive.
                 try:
                     schema = class_def.GET_SCHEMA()
                 except Exception:
@@ -185,9 +162,8 @@ class TypeResolver:
                         node_id, schema, out.template.template_id, next_stack
                     )
 
-        # Treat the legacy wildcard literally as AnyType. We warn only when the
-        # source node's *declared* type was already wildcard, so MatchType-style
-        # "no upstream connected" cases (which warn elsewhere) don't double-warn.
+        # Warn only for V1 wildcards declared as "*"; unresolved MatchType
+        # templates warn separately in _resolve_match_template, avoiding double-warns.
         if isinstance(resolved, str) and resolved == ANY_TYPE and declared == ANY_TYPE:
             self._warn(
                 node_id, slot_idx,
@@ -195,7 +171,7 @@ class TypeResolver:
             )
 
         if not isinstance(resolved, str):
-            # Non-string types (e.g., legacy combos passed as list) — bail to AnyType.
+            # e.g. legacy combo declared as a list of options.
             self._warn(node_id, slot_idx,
                        f"node '{class_type}' output slot {slot_idx} has non-string return type {type(resolved).__name__}; defaulting to AnyType")
             resolved = ANY_TYPE
@@ -205,13 +181,7 @@ class TypeResolver:
 
     def _resolve_match_template(self, node_id: str, schema, template_id: str,
                                 stack: frozenset[tuple[str, int]]) -> str:
-        """Resolve a MatchType.Output by inspecting the node's MatchType.Inputs
-        with the same template_id.
-
-        Strategy (per design decision): walk inputs in schema order, pick the
-        FIRST concrete (non-AnyType) resolution. If none resolve, return
-        AnyType with a one-shot warning.
-        """
+        """Walk MatchType.Inputs sharing ``template_id``; return first concrete resolution or ``ANY_TYPE``."""
         node = self._get_node(node_id)
         inputs_dict = (node or {}).get("inputs", {}) or {}
         any_input_seen = False
@@ -229,11 +199,9 @@ class TypeResolver:
                 t = self.resolve_output_type(link[0], link[1], stack)
                 if t != ANY_TYPE:
                     return t
-            # Literal value (or malformed link): a MatchType slot has no
-            # concrete declared type, so we cannot infer anything useful here.
+            # Literal or malformed link: MatchType slots have no declared concrete type.
         if not any_input_seen:
-            # Schema declared a template_id with no Input bearing it. This is a
-            # node-author bug; warn once.
+            # Node-author bug: output template has no matching Input.
             self._warn(node_id, None,
                        f"MatchType output template '{template_id}' has no matching Input on the node; defaulting to AnyType")
         else:
@@ -315,11 +283,11 @@ class TypeResolver:
                 except Exception:
                     schema = None
             if schema is not None:
-                # First, try a top-level input id match.
+                # Top-level input id.
                 for inp in schema.inputs:
                     if inp.id == input_id:
                         return self._effective_io_type(inp)
-                # Then a nested match (DynamicSlot / DynamicCombo prefix.child).
+                # Nested (DynamicSlot / DynamicCombo `parent.child`).
                 if "." in input_id:
                     top, _, _ = input_id.partition(".")
                     for inp in schema.inputs:
@@ -330,9 +298,8 @@ class TypeResolver:
                                 continue
                             if child.id == input_id.split(".", 1)[1]:
                                 return self._effective_io_type(child)
-                # Fall through to V1 dict for hidden inputs etc.
+                # Fall through to V1 dict (hidden inputs, etc.).
 
-        # V1 fallback: look at INPUT_TYPES() dict.
         try:
             inputs = class_def.INPUT_TYPES()
         except Exception:
@@ -346,8 +313,7 @@ class TypeResolver:
                 t = entry[0]
                 if isinstance(t, str):
                     return t
-                if isinstance(t, list):
-                    # legacy combo declared as a list of options.
+                if isinstance(t, list):  # legacy combo declared as list of options
                     return io.Combo.io_type
                 return ANY_TYPE
         return ANY_TYPE
@@ -355,22 +321,20 @@ class TypeResolver:
     @staticmethod
     def _effective_io_type(inp) -> str:
         """Return the consumer-facing io_type of a (possibly dynamic) input."""
-        # Autogrow wraps a template input — the element type is what matters.
+        # Autogrow / DynamicSlot wrap a real element type; that's what consumers care about.
         if isinstance(inp, io.Autogrow.Input):
             try:
                 return inp.template.input.get_io_type()
             except Exception:
                 return ANY_TYPE
-        # DynamicSlot wraps an underlying slot input.
         if isinstance(inp, io.DynamicSlot.Input):
             try:
                 return inp.slot.get_io_type()
             except Exception:
                 return ANY_TYPE
-        # DynamicCombo's "type" is a key value selector, not a connection type.
+        # DynamicCombo's "type" is a key selector, not a connection type.
         if isinstance(inp, io.DynamicCombo.Input):
             return ANY_TYPE
-        # Everything else: trust the input's declared io_type.
         try:
             return inp.get_io_type()
         except Exception:
@@ -380,9 +344,8 @@ class TypeResolver:
     def compute_live_input_types(self, node_id: str) -> dict[str, str]:
         """Build the ``{input_id: resolved_io_type}`` map for a node.
 
-        Used by :py:func:`comfy_api.latest._io.get_finalized_class_inputs` so
-        future dynamic-input expansion strategies (per-type DynamicType, etc.)
-        can branch on what was actually connected.
+        Consumed by ``_io.get_finalized_class_inputs`` so future per-type
+        dynamic-input expansion can branch on what was actually connected.
         """
         node = self._get_node(node_id)
         if node is None:

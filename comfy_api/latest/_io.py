@@ -1357,12 +1357,9 @@ class Range(ComfyTypeIO):
             })
 
 
-# Signature: (out_dict, live_inputs, value, input_type, curr_prefix, live_input_types)
-#   live_input_types is an optional {input_id: resolved_io_type} dict produced
-#   by comfy_execution.type_resolver.TypeResolver. Existing dynamic-input
-#   implementations may ignore it; future type-discriminated dynamic inputs
-#   (e.g. a per-connected-type variant of DynamicCombo) use it as their
-#   discriminator instead of literal live_inputs values.
+# Signature: (out_dict, live_inputs, value, input_type, curr_prefix, live_input_types).
+# live_input_types is {input_id: resolved_io_type} from TypeResolver; existing
+# expanders ignore it, future type-discriminated ones use it as discriminator.
 _DynamicInputFunc = Callable[
     [dict[str, Any], dict[str, Any], tuple[str, dict[str, Any]], str, list[str] | None, dict[str, str] | None],
     None,
@@ -1722,15 +1719,8 @@ class Schema:
 def get_finalized_class_inputs(d: dict[str, Any], live_inputs: dict[str, Any], include_hidden=False, live_input_types: dict[str, str] | None = None) -> tuple[dict[str, Any], V3Data]:
     """Expand a node's V3 schema against a concrete prompt.
 
-    Args:
-        d: ``INPUT_TYPES()``-shaped dict for the node.
-        live_inputs: Concrete ``{input_id: value}`` map from the prompt
-            (values may be links ``[node_id, slot_idx]`` or literals).
-        include_hidden: When True, retain hidden inputs in the returned dict.
-        live_input_types: Optional ``{input_id: resolved_io_type}`` map
-            produced by ``comfy_execution.type_resolver.TypeResolver``. Future
-            dynamic-input strategies that branch on connected type use this as
-            their discriminator. Existing dynamic types ignore it.
+    ``live_input_types`` is an optional ``{input_id: resolved_io_type}`` map
+    (from ``TypeResolver``) used by future type-discriminated dynamic inputs.
     """
     out_dict = {
         "required": {},
