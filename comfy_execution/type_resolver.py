@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from comfy_api.latest import io
+from comfy_api.latest import _io as io
 from comfy_api.internal import _ComfyNodeInternal
 
 

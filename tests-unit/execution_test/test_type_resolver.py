@@ -328,6 +328,36 @@ def test_effective_slot_type_peels_autogrow(fake_nodes_module, TypeResolver):
 # compute_live_input_types
 # ---------------------------------------------------------------------------
 
+def test_effective_slot_type_on_v3_plain_input(fake_nodes_module, TypeResolver):
+    """V3 input that is neither Autogrow/DynamicSlot/DynamicCombo must still resolve.
+
+    Regression test: importing ``io`` from the public re-export skipped
+    ``DynamicSlot``, so an ``isinstance`` chain in ``_effective_io_type`` raised
+    ``AttributeError`` the first time it ran against a plain V3 input.
+    """
+    from comfy_api.latest import io
+
+    class BoolSink(io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return io.Schema(
+                node_id="BoolSink",
+                inputs=[io.Boolean.Input("flag")],
+                outputs=[io.Boolean.Output()],
+            )
+
+        @classmethod
+        def execute(cls, flag):
+            return io.NodeOutput(flag)
+
+    BoolSink.GET_SCHEMA()
+    fake_nodes_module["BoolSink"] = BoolSink
+    prompt = {"n": {"class_type": "BoolSink", "inputs": {"flag": True}}}
+    r = TypeResolver(prompt)
+    assert r.get_declared_slot_io_type("n", "flag") == "BOOLEAN"
+    assert r.compute_live_input_types("n") == {"flag": "BOOLEAN"}
+
+
 def test_compute_live_input_types_mixes_links_and_literals(fake_nodes_module, TypeResolver):
     fake_nodes_module["Src"] = _v1_node(("MODEL",))
     fake_nodes_module["Sink"] = _v1_node(
