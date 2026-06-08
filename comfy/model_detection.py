@@ -313,6 +313,10 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
                     dit_config["use_x0"] = True
                 else:
                     dit_config["use_x0"] = False
+                if "{}__sequential__".format(key_prefix) in state_dict_keys: # sequential txt_ids
+                    dit_config["use_sequential_txt_ids"] = True
+                else:
+                    dit_config["use_sequential_txt_ids"] = False
         else:
             dit_config["guidance_embed"] = "{}guidance_in.in_layer.weight".format(key_prefix) in state_dict_keys
             dit_config["yak_mlp"] = '{}double_blocks.0.img_mlp.gate_proj.weight'.format(key_prefix) in state_dict_keys
@@ -594,6 +598,56 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
 
         return dit_config
 
+    if "{}blocks.35.mlp.vid.proj_in.weight".format(key_prefix) in state_dict_keys and state_dict["{}blocks.35.mlp.vid.proj_in.weight".format(key_prefix)].shape[1] == 3072: # seedvr2 7b
+        dit_config = {}
+        dit_config["image_model"] = "seedvr2"
+        dit_config["vid_dim"] = 3072
+        dit_config["heads"] = 24
+        dit_config["num_layers"] = 36
+        # 7B uses non-shared MMModule layout (separate ``vid.`` / ``txt.``
+        # submodules) at EVERY block — verified by inspecting the 7B
+        # state_dict at ``blocks.31.ada.txt.attn_gate`` (txt. prefix means
+        # ``MMModule.shared_weights=False``). Native NaDiT computes
+        # per-block ``shared_weights = not (i < mm_layers)``, so to keep
+        # every block non-shared we set ``mm_layers = num_layers``.
+        # Without this, blocks at index >= mm_layers (default 10) try to
+        # load ``blocks.N.*.all.*`` keys that don't exist in the file,
+        # silently miss-load → all-black output.
+        dit_config["mm_layers"] = 36
+        dit_config["norm_eps"] = 1e-5
+        dit_config["qk_rope"] = True
+        dit_config["rope_type"] = "rope3d"
+        dit_config["rope_dim"] = 64
+        dit_config["mlp_type"] = "normal"
+        return dit_config
+    elif "{}blocks.35.mlp.all.proj_in_gate.weight".format(key_prefix) in state_dict_keys: # seedvr2 7b
+        dit_config = {}
+        dit_config["image_model"] = "seedvr2"
+        dit_config["vid_dim"] = 3072
+        dit_config["heads"] = 24
+        dit_config["num_layers"] = 36
+        # This checkpoint layout carries shared ``all.`` MMModule keys.
+        # Preserve the historical split: the initial blocks use separate
+        # vid/txt modules, later blocks use shared modules.
+        dit_config["mm_layers"] = 10
+        dit_config["norm_eps"] = 1e-5
+        dit_config["qk_rope"] = True
+        dit_config["rope_type"] = "rope3d"
+        dit_config["rope_dim"] = 64
+        dit_config["mlp_type"] = "swiglu"
+        return dit_config
+    elif "{}blocks.31.mlp.all.proj_in_gate.weight".format(key_prefix) in state_dict_keys: # seedvr2 3b
+        dit_config = {}
+        dit_config["image_model"] = "seedvr2"
+        dit_config["vid_dim"] = 2560
+        dit_config["heads"] = 20
+        dit_config["num_layers"] = 32
+        dit_config["norm_eps"] = 1.0e-05
+        dit_config["qk_rope"] = None
+        dit_config["mlp_type"] = "swiglu"
+        dit_config["vid_out_norm"] = True
+        return dit_config
+
     if '{}head.modulation'.format(key_prefix) in state_dict_keys:  # Wan 2.1
         dit_config = {}
         dit_config["image_model"] = "wan2.1"
@@ -675,6 +729,9 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
         dit_config["qkv_bias"] = False
         dit_config["guidance_cond_proj_dim"] = None#f"{key_prefix}t_embedder.cond_proj.weight" in state_dict_keys
         return dit_config
+
+    if '{}cam_out_layer.weight'.format(key_prefix) in state_dict_keys and '{}repo_layers.0.final_map.weight'.format(key_prefix) in state_dict_keys:  # TripoSplat
+        return {"image_model": "triposplat"}
 
     if '{}t_embedder1.mlp.0.weight'.format(key_prefix) in state_dict_keys and '{}x_embedder.proj1.weight'.format(key_prefix) in state_dict_keys:  # HiDream-O1
         return {"image_model": "hidream_o1"}
@@ -806,6 +863,13 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
         if "{}time_text_embed.addition_t_embedding.weight".format(key_prefix) in state_dict_keys:  # Layered
             dit_config["use_additional_t_cond"] = True
             dit_config["default_ref_method"] = "negative_index"
+        return dit_config
+
+    if '{}embed_image_indicator.weight'.format(key_prefix) in state_dict_keys:  # Ideogram 4
+        dit_config = {}
+        dit_config["image_model"] = "ideogram4"
+        dit_config["in_channels"] = state_dict['{}input_proj.weight'.format(key_prefix)].shape[1]
+        dit_config["num_layers"] = count_blocks(state_dict_keys, '{}layers.'.format(key_prefix) + '{}.')
         return dit_config
 
     if '{}visual_transformer_blocks.0.cross_attention.key_norm.weight'.format(key_prefix) in state_dict_keys: # Kandinsky 5

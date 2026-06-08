@@ -47,13 +47,17 @@ import node_helpers
 if args.enable_manager:
     import comfyui_manager
 
+
 def before_node_execution():
     comfy.model_management.throw_exception_if_processing_interrupted()
+
 
 def interrupt_processing(value=True):
     comfy.model_management.interrupt_current_processing(value)
 
+
 MAX_RESOLUTION=16384
+
 
 class CLIPTextEncode(ComfyNodeABC):
     @classmethod
@@ -68,7 +72,7 @@ class CLIPTextEncode(ComfyNodeABC):
     OUTPUT_TOOLTIPS = ("A conditioning containing the embedded text used to guide the diffusion model.",)
     FUNCTION = "encode"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
     DESCRIPTION = "Encodes a text prompt using a CLIP model into an embedding that can be used to guide the diffusion model towards generating specific images."
     SEARCH_ALIASES = ["text", "prompt", "text prompt", "positive prompt", "negative prompt", "encode text", "text encoder", "encode prompt"]
 
@@ -87,7 +91,7 @@ class ConditioningCombine:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "combine"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
     SEARCH_ALIASES = ["combine", "merge conditioning", "combine prompts", "merge prompts", "mix prompts", "add prompt"]
 
     def combine(self, conditioning_1, conditioning_2):
@@ -104,7 +108,7 @@ class ConditioningAverage :
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "addWeighted"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def addWeighted(self, conditioning_to, conditioning_from, conditioning_to_strength):
         out = []
@@ -143,7 +147,7 @@ class ConditioningConcat:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "concat"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def concat(self, conditioning_to, conditioning_from):
         out = []
@@ -176,7 +180,7 @@ class ConditioningSetArea:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def append(self, conditioning, width, height, x, y, strength):
         c = node_helpers.conditioning_set_values(conditioning, {"area": (height // 8, width // 8, y // 8, x // 8),
@@ -197,7 +201,7 @@ class ConditioningSetAreaPercentage:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def append(self, conditioning, width, height, x, y, strength):
         c = node_helpers.conditioning_set_values(conditioning, {"area": ("percentage", height, width, y, x),
@@ -214,7 +218,7 @@ class ConditioningSetAreaStrength:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def append(self, conditioning, strength):
         c = node_helpers.conditioning_set_values(conditioning, {"strength": strength})
@@ -234,7 +238,7 @@ class ConditioningSetMask:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def append(self, conditioning, mask, set_cond_area, strength):
         set_area_to_bounds = False
@@ -303,7 +307,7 @@ class VAEDecode:
     OUTPUT_TOOLTIPS = ("The decoded image.",)
     FUNCTION = "decode"
 
-    CATEGORY = "latent"
+    CATEGORY = "model/latent"
     DESCRIPTION = "Decodes latent images back into pixel space images."
     SEARCH_ALIASES = ["decode", "decode latent", "latent to image", "render latent"]
 
@@ -323,8 +327,8 @@ class VAEDecodeTiled:
         return {"required": {"samples": ("LATENT", ), "vae": ("VAE", ),
                              "tile_size": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 32, "advanced": True}),
                              "overlap": ("INT", {"default": 64, "min": 0, "max": 4096, "step": 32, "advanced": True}),
-                             "temporal_size": ("INT", {"default": 64, "min": 8, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to decode at a time.", "advanced": True}),
-                             "temporal_overlap": ("INT", {"default": 8, "min": 4, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to overlap.", "advanced": True}),
+                             "temporal_size": ("INT", {"default": 64, "min": 0, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to decode at a time. SeedVR2 allows 0 to disable temporal slicing.", "advanced": True}),
+                             "temporal_overlap": ("INT", {"default": 8, "min": 0, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to overlap.", "advanced": True}),
                             }}
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "decode"
@@ -334,18 +338,32 @@ class VAEDecodeTiled:
     def decode(self, vae, samples, tile_size, overlap=64, temporal_size=64, temporal_overlap=8):
         if tile_size < overlap * 4:
             overlap = tile_size // 4
-        if temporal_size < temporal_overlap * 2:
-            temporal_overlap = temporal_overlap // 2
         temporal_compression = vae.temporal_compression_decode()
         if temporal_compression is not None:
-            temporal_size = max(2, temporal_size // temporal_compression)
-            temporal_overlap = max(1, min(temporal_size // 2, temporal_overlap // temporal_compression))
+            if temporal_size <= 0:
+                temporal_size = 0
+                temporal_overlap = 0
+            else:
+                requested_temporal_overlap = temporal_overlap
+                if temporal_size < temporal_overlap * 2:
+                    temporal_overlap = temporal_overlap // 2
+                temporal_size = max(2, temporal_size // temporal_compression)
+                temporal_overlap = min(temporal_size // 2, temporal_overlap // temporal_compression)
+                if requested_temporal_overlap > 0:
+                    temporal_overlap = max(1, temporal_overlap)
         else:
             temporal_size = None
             temporal_overlap = None
 
         compression = vae.spacial_compression_decode()
-        images = vae.decode_tiled(samples["samples"], tile_x=tile_size // compression, tile_y=tile_size // compression, overlap=overlap // compression, tile_t=temporal_size, overlap_t=temporal_overlap)
+        images = vae.decode_tiled(
+            samples["samples"],
+            tile_x=tile_size // compression,
+            tile_y=tile_size // compression,
+            overlap=overlap // compression,
+            tile_t=temporal_size,
+            overlap_t=temporal_overlap,
+        )
         if len(images.shape) == 5: #Combine batches
             images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
         return (images, )
@@ -357,12 +375,12 @@ class VAEEncode:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
 
-    CATEGORY = "latent"
+    CATEGORY = "model/latent"
     SEARCH_ALIASES = ["encode", "encode image", "image to latent"]
 
     def encode(self, vae, pixels):
         t = vae.encode(pixels)
-        return ({"samples":t}, )
+        return ({"samples": t}, )
 
 class VAEEncodeTiled:
     @classmethod
@@ -370,8 +388,8 @@ class VAEEncodeTiled:
         return {"required": {"pixels": ("IMAGE", ), "vae": ("VAE", ),
                              "tile_size": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 64, "advanced": True}),
                              "overlap": ("INT", {"default": 64, "min": 0, "max": 4096, "step": 32, "advanced": True}),
-                             "temporal_size": ("INT", {"default": 64, "min": 8, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to encode at a time.", "advanced": True}),
-                             "temporal_overlap": ("INT", {"default": 8, "min": 4, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to overlap.", "advanced": True}),
+                             "temporal_size": ("INT", {"default": 64, "min": 0, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to encode at a time. SeedVR2 allows 0 to disable temporal slicing.", "advanced": True}),
+                             "temporal_overlap": ("INT", {"default": 8, "min": 0, "max": 4096, "step": 4, "tooltip": "Only used for video VAEs: Amount of frames to overlap.", "advanced": True}),
                             }}
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
@@ -379,6 +397,9 @@ class VAEEncodeTiled:
     CATEGORY = "experimental"
 
     def encode(self, vae, pixels, tile_size, overlap, temporal_size=64, temporal_overlap=8):
+        if temporal_size <= 0:
+            temporal_size = 0
+            temporal_overlap = 0
         t = vae.encode_tiled(pixels, tile_x=tile_size, tile_y=tile_size, overlap=overlap, tile_t=temporal_size, overlap_t=temporal_overlap)
         return ({"samples": t}, )
 
@@ -389,7 +410,7 @@ class VAEEncodeForInpaint:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
 
-    CATEGORY = "latent/inpaint"
+    CATEGORY = "model/latent/inpaint"
 
     def encode(self, vae, pixels, mask, grow_mask_by=6):
         downscale_ratio = vae.spacial_compression_encode()
@@ -438,7 +459,7 @@ class InpaintModelConditioning:
     RETURN_NAMES = ("positive", "negative", "latent")
     FUNCTION = "encode"
 
-    CATEGORY = "conditioning/inpaint"
+    CATEGORY = "model/conditioning/inpaint"
 
     def encode(self, positive, negative, pixels, vae, mask, noise_mask=True):
         x = (pixels.shape[1] // 8) * 8
@@ -598,7 +619,7 @@ class CheckpointLoaderSimple:
                        "The VAE model used for encoding and decoding images to and from latent space.")
     FUNCTION = "load_checkpoint"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
     DESCRIPTION = "Loads a diffusion model checkpoint, diffusion models are used to denoise latents."
     SEARCH_ALIASES = ["load model", "checkpoint", "model loader", "load checkpoint", "ckpt", "model"]
 
@@ -644,7 +665,7 @@ class unCLIPCheckpointLoader:
     RETURN_TYPES = ("MODEL", "CLIP", "VAE", "CLIP_VISION")
     FUNCTION = "load_checkpoint"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
 
     def load_checkpoint(self, ckpt_name, output_vae=True, output_clip=True):
         ckpt_path = folder_paths.get_full_path_or_raise("checkpoints", ckpt_name)
@@ -660,7 +681,7 @@ class CLIPSetLastLayer:
     RETURN_TYPES = ("CLIP",)
     FUNCTION = "set_last_layer"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def set_last_layer(self, clip, stop_at_clip_layer):
         clip = clip.clone()
@@ -689,7 +710,7 @@ class LoraLoader:
     OUTPUT_TOOLTIPS = ("The modified diffusion model.", "The modified CLIP model.")
     FUNCTION = "load_lora"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
     DESCRIPTION = "This LoRA loader is used to modify both diffusion and CLIP models, altering the way in which latents are denoised such as applying styles. Multiple LoRA nodes can be linked together."
     SEARCH_ALIASES = ["lora", "load lora", "apply lora", "lora loader", "lora model"]
 
@@ -789,7 +810,7 @@ class VAELoader:
     RETURN_TYPES = ("VAE",)
     FUNCTION = "load_vae"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
 
     #TODO: scale factor?
     def load_vae(self, vae_name):
@@ -831,7 +852,7 @@ class ControlNetLoader:
     RETURN_TYPES = ("CONTROL_NET",)
     FUNCTION = "load_controlnet"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
     SEARCH_ALIASES = ["controlnet", "control net", "cn", "load controlnet", "controlnet loader"]
 
     def load_controlnet(self, control_net_name):
@@ -850,7 +871,7 @@ class DiffControlNetLoader:
     RETURN_TYPES = ("CONTROL_NET",)
     FUNCTION = "load_controlnet"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
 
     def load_controlnet(self, model, control_net_name):
         controlnet_path = folder_paths.get_full_path_or_raise("controlnet", control_net_name)
@@ -870,7 +891,7 @@ class ControlNetApply:
     FUNCTION = "apply_controlnet"
 
     DEPRECATED = True
-    CATEGORY = "conditioning/controlnet"
+    CATEGORY = "model/conditioning/controlnet"
 
     def apply_controlnet(self, conditioning, control_net, image, strength):
         if strength == 0:
@@ -908,7 +929,7 @@ class ControlNetApplyAdvanced:
     RETURN_NAMES = ("positive", "negative")
     FUNCTION = "apply_controlnet"
 
-    CATEGORY = "conditioning/controlnet"
+    CATEGORY = "model/conditioning/controlnet"
     SEARCH_ALIASES = ["controlnet", "apply controlnet", "use controlnet", "control net"]
 
     def apply_controlnet(self, positive, negative, control_net, image, strength, start_percent, end_percent, vae=None, extra_concat=[]):
@@ -969,7 +990,7 @@ class CLIPLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "clip_name": (folder_paths.get_filename_list("text_encoders"), ),
-                              "type": (["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "flux2", "ovis", "longcat_image", "cogvideox", "lens", "pixeldit"], ),
+                              "type": (["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "flux2", "ovis", "longcat_image", "cogvideox", "lens", "pixeldit", "ideogram4"], ),
                               },
                 "optional": {
                               "device": (["default", "cpu"], {"advanced": True}),
@@ -1030,7 +1051,7 @@ class CLIPVisionLoader:
     RETURN_TYPES = ("CLIP_VISION",)
     FUNCTION = "load_clip"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
 
     def load_clip(self, clip_name):
         clip_path = folder_paths.get_full_path_or_raise("clip_vision", clip_name)
@@ -1049,7 +1070,7 @@ class CLIPVisionEncode:
     RETURN_TYPES = ("CLIP_VISION_OUTPUT",)
     FUNCTION = "encode"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def encode(self, clip_vision, image, crop):
         crop_image = True
@@ -1066,7 +1087,7 @@ class StyleModelLoader:
     RETURN_TYPES = ("STYLE_MODEL",)
     FUNCTION = "load_style_model"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
 
     def load_style_model(self, style_model_name):
         style_model_path = folder_paths.get_full_path_or_raise("style_models", style_model_name)
@@ -1088,7 +1109,7 @@ class StyleModelApply:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "apply_stylemodel"
 
-    CATEGORY = "conditioning/style_model"
+    CATEGORY = "model/conditioning/style_model"
 
     def apply_stylemodel(self, conditioning, style_model, clip_vision_output, strength, strength_type):
         cond = style_model.get_cond(clip_vision_output).flatten(start_dim=0, end_dim=1).unsqueeze(dim=0)
@@ -1148,7 +1169,7 @@ class unCLIPConditioning:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "apply_adm"
 
-    CATEGORY = "conditioning"
+    CATEGORY = "model/conditioning"
 
     def apply_adm(self, conditioning, clip_vision_output, strength, noise_augmentation):
         if strength == 0:
@@ -1165,7 +1186,7 @@ class GLIGENLoader:
     RETURN_TYPES = ("GLIGEN",)
     FUNCTION = "load_gligen"
 
-    CATEGORY = "loaders"
+    CATEGORY = "model/loaders"
 
     def load_gligen(self, gligen_name):
         gligen_path = folder_paths.get_full_path_or_raise("gligen", gligen_name)
@@ -1187,7 +1208,7 @@ class GLIGENTextBoxApply:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
 
-    CATEGORY = "conditioning/gligen"
+    CATEGORY = "model/conditioning/gligen"
 
     def append(self, conditioning_to, clip, gligen_textbox_model, text, width, height, x, y):
         c = []
@@ -1217,7 +1238,7 @@ class EmptyLatentImage:
     OUTPUT_TOOLTIPS = ("The empty latent image batch.",)
     FUNCTION = "generate"
 
-    CATEGORY = "latent"
+    CATEGORY = "model/latent"
     DESCRIPTION = "Create a new batch of empty latent images to be denoised via sampling."
     SEARCH_ALIASES = ["empty", "empty latent", "new latent", "create latent", "blank latent", "blank"]
 
@@ -1238,7 +1259,7 @@ class LatentFromBatch:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "frombatch"
 
-    CATEGORY = "latent/batch"
+    CATEGORY = "model/latent/batch"
 
     def frombatch(self, samples, batch_index, length):
         s = samples.copy()
@@ -1273,7 +1294,7 @@ class RepeatLatentBatch:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "repeat"
 
-    CATEGORY = "latent/batch"
+    CATEGORY = "model/latent/batch"
 
     def repeat(self, samples, amount):
         s = samples.copy()
@@ -1305,7 +1326,7 @@ class LatentUpscale:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "upscale"
 
-    CATEGORY = "latent"
+    CATEGORY = "model/latent"
 
     def upscale(self, samples, upscale_method, width, height, crop):
         if width == 0 and height == 0:
@@ -1338,7 +1359,7 @@ class LatentUpscaleBy:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "upscale"
 
-    CATEGORY = "latent"
+    CATEGORY = "model/latent"
 
     def upscale(self, samples, upscale_method, scale_by):
         s = samples.copy()
@@ -1356,7 +1377,7 @@ class LatentRotate:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "rotate"
 
-    CATEGORY = "latent/transform"
+    CATEGORY = "model/latent/transform"
 
     def rotate(self, samples, rotation):
         s = samples.copy()
@@ -1382,7 +1403,7 @@ class LatentFlip:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "flip"
 
-    CATEGORY = "latent/transform"
+    CATEGORY = "model/latent/transform"
 
     def flip(self, samples, flip_method):
         s = samples.copy()
@@ -1407,7 +1428,7 @@ class LatentComposite:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "composite"
 
-    CATEGORY = "latent"
+    CATEGORY = "model/latent"
 
     def composite(self, samples_to, samples_from, x, y, composite_method="normal", feather=0):
         x =  x // 8
@@ -1494,7 +1515,7 @@ class LatentCrop:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "crop"
 
-    CATEGORY = "latent/transform"
+    CATEGORY = "model/latent/transform"
 
     def crop(self, samples, width, height, x, y):
         s = samples.copy()
@@ -1524,7 +1545,7 @@ class SetLatentNoiseMask:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "set_mask"
 
-    CATEGORY = "latent/inpaint"
+    CATEGORY = "model/latent/inpaint"
 
     def set_mask(self, samples, mask):
         s = samples.copy()
@@ -1578,7 +1599,7 @@ class KSampler:
     OUTPUT_TOOLTIPS = ("The denoised latent.",)
     FUNCTION = "sample"
 
-    CATEGORY = "sampling"
+    CATEGORY = "model/sampling"
     DESCRIPTION = "Uses the provided model, positive and negative conditioning to denoise the latent image."
     SEARCH_ALIASES = ["sampler", "sample", "generate", "denoise", "diffuse", "txt2img", "img2img"]
 
@@ -1608,7 +1629,7 @@ class KSamplerAdvanced:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "sample"
 
-    CATEGORY = "sampling"
+    CATEGORY = "model/sampling"
 
     def sample(self, model, add_noise, noise_seed, steps, cfg, sampler_name, scheduler, positive, negative, latent_image, start_at_step, end_at_step, return_with_leftover_noise, denoise=1.0):
         force_full_denoise = True
@@ -2362,6 +2383,7 @@ async def init_builtin_extra_nodes():
         "nodes_model_downscale.py",
         "nodes_images.py",
         "nodes_video_model.py",
+        "nodes_ideogram4.py",
         "nodes_train.py",
         "nodes_dataset.py",
         "nodes_sag.py",
@@ -2417,6 +2439,7 @@ async def init_builtin_extra_nodes():
         "nodes_camera_trajectory.py",
         "nodes_edit_model.py",
         "nodes_tcfg.py",
+        "nodes_seedvr.py",
         "nodes_context_windows.py",
         "nodes_qwen.py",
         "nodes_chroma_radiance.py",
@@ -2455,6 +2478,8 @@ async def init_builtin_extra_nodes():
         "nodes_save_3d.py",
         "nodes_moge.py",
         "nodes_mediapipe.py",
+        "nodes_gaussian_splat.py",
+        "nodes_triposplat.py"
     ]
 
     import_failed = []

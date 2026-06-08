@@ -4,6 +4,7 @@ class LatentFormat:
     scale_factor = 1.0
     latent_channels = 4
     latent_dimensions = 2
+    preserve_empty_channel_multiples = False
     latent_rgb_factors = None
     latent_rgb_factors_bias = None
     latent_rgb_factors_reshape = None
@@ -232,6 +233,16 @@ class Flux2(LatentFormat):
         self.latent_rgb_factors_bias = [-0.0329, -0.0718, -0.0851]
         self.latent_rgb_factors_reshape = lambda t: t.reshape(t.shape[0], 32, 2, 2, t.shape[-2], t.shape[-1]).permute(0, 1, 4, 2, 5, 3).reshape(t.shape[0], 32, t.shape[-2] * 2, t.shape[-1] * 2)
         self.taesd_decoder_name = "taef2_decoder"
+
+    def process_in(self, latent):
+        return latent
+
+    def process_out(self, latent):
+        return latent
+
+class TripoSplat(LatentFormat):
+    # Sequence latent (B, 8192, 16) the camera token rides alongside as a second nested latent
+    latent_channels = 16
 
     def process_in(self, latent):
         return latent
@@ -768,6 +779,10 @@ class Hunyuan3Dv2mini(LatentFormat):
 class ACEAudio(LatentFormat):
     latent_channels = 8
     latent_dimensions = 2
+
+class SeedVR2(LatentFormat):
+    latent_channels = 16
+    preserve_empty_channel_multiples = True
 
 class ACEAudio15(LatentFormat):
     latent_channels = 64
