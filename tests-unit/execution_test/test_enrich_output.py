@@ -11,12 +11,6 @@ def _make_args(enable_assets: bool):
     return a
 
 
-def _make_db_ref(ref_id="ref-id-1"):
-    ref = MagicMock()
-    ref.id = ref_id
-    return ref
-
-
 def _make_register_result(ref_id="ref-id-2"):
     result = MagicMock()
     result.ref.id = ref_id
@@ -28,27 +22,28 @@ def _make_register_result(ref_id="ref-id-2"):
 _DEFAULT_BASE = os.path.join(__import__("tempfile").gettempdir(), "asset-enrichment-test-base")
 
 
-def _call(output_ui, *, enable_assets=True, file_exists=True, db_ref=None, register_result=None, directory=_DEFAULT_BASE):
-    fake_session_cm = MagicMock()
-    fake_session_cm.__enter__ = MagicMock(return_value=MagicMock())
-    fake_session_cm.__exit__ = MagicMock(return_value=False)
-
-    mocked_modules = {
+def _mocked_modules(*, enable_assets=True, register_file_in_place=None, directory=_DEFAULT_BASE):
+    return {
         "comfy.cli_args": MagicMock(args=_make_args(enable_assets)),
         "folder_paths": MagicMock(get_directory_by_type=MagicMock(return_value=directory)),
         "app.assets.services.ingest": MagicMock(
-            register_file_in_place=MagicMock(return_value=register_result or _make_register_result()),
+            register_file_in_place=register_file_in_place or MagicMock(return_value=_make_register_result()),
             DependencyMissingError=type("DependencyMissingError", (Exception,), {}),
         ),
-        "app.assets.database.queries.asset_reference": MagicMock(
-            get_reference_by_file_path=MagicMock(return_value=db_ref),
-        ),
-        "app.database.db": MagicMock(create_session=MagicMock(return_value=fake_session_cm)),
     }
+
+
+def _call(output_ui, *, enable_assets=True, file_exists=True, register_result=None, directory=_DEFAULT_BASE):
+    register_mock = MagicMock(return_value=register_result or _make_register_result())
+    mocked = _mocked_modules(
+        enable_assets=enable_assets,
+        register_file_in_place=register_mock,
+        directory=directory,
+    )
 
     # Only os.path.isfile is patched — abspath/join must run natively so the
     # containment check sees real platform paths.
-    with patch.dict("sys.modules", mocked_modules), \
+    with patch.dict("sys.modules", mocked), \
          patch("os.path.isfile", return_value=file_exists):
         import importlib
         import comfy_execution.asset_enrichment as mod
@@ -88,26 +83,36 @@ class TestEnrichOutputWithAssets(unittest.TestCase):
         result = _call(output, directory=None)
         self.assertNotIn("id", result["images"][0])
 
-    def test_db_hit_injects_id(self):
-        db_ref = _make_db_ref(ref_id="db-ref")
-        output = {"images": [{"filename": "a.png", "subfolder": "", "type": "output"}]}
-        result = _call(output, db_ref=db_ref)
+    def test_register_injects_only_id(self):
+        reg = _make_register_result(ref_id="inline-ref")
+        output = {"images": [{"filename": "new.png", "subfolder": "", "type": "output"}]}
+        result = _call(output, register_result=reg)
         img = result["images"][0]
-        self.assertEqual(img["id"], "db-ref")
+        self.assertEqual(img["id"], "inline-ref")
         # Only id is injected — no asset_hash, name, preview_url, size
         self.assertNotIn("asset_hash", img)
         self.assertNotIn("name", img)
         self.assertNotIn("preview_url", img)
         self.assertNotIn("size", img)
 
-    def test_db_miss_falls_back_to_register(self):
-        reg = _make_register_result(ref_id="inline-ref")
-        output = {"images": [{"filename": "new.png", "subfolder": "", "type": "output"}]}
-        result = _call(output, db_ref=None, register_result=reg)
-        img = result["images"][0]
-        self.assertEqual(img["id"], "inline-ref")
-        self.assertNotIn("asset_hash", img)
-        self.assertNotIn("name", img)
+    def test_register_called_per_entry(self):
+        register_mock = MagicMock(return_value=_make_register_result())
+        mocked = _mocked_modules(register_file_in_place=register_mock)
+        output = {
+            "images": [
+                {"filename": "a.png", "subfolder": "", "type": "output"},
+                {"filename": "b.png", "subfolder": "", "type": "output"},
+            ]
+        }
+
+        with patch.dict("sys.modules", mocked), \
+             patch("os.path.isfile", return_value=True):
+            import importlib
+            import comfy_execution.asset_enrichment as mod
+            importlib.reload(mod)
+            mod.enrich_output_with_assets(output)
+
+        self.assertEqual(register_mock.call_count, 2)
 
     def test_original_entry_not_mutated(self):
         orig = {"filename": "a.png", "subfolder": "", "type": "output"}
@@ -125,22 +130,7 @@ class TestEnrichOutputWithAssets(unittest.TestCase):
                 raise RuntimeError("boom")
             return good_reg
 
-        fake_session_cm = MagicMock()
-        fake_session_cm.__enter__ = MagicMock(return_value=MagicMock())
-        fake_session_cm.__exit__ = MagicMock(return_value=False)
-
-        mocked_modules = {
-            "comfy.cli_args": MagicMock(args=_make_args(True)),
-            "folder_paths": MagicMock(get_directory_by_type=MagicMock(return_value=_DEFAULT_BASE)),
-            "app.assets.services.ingest": MagicMock(
-                register_file_in_place=register_side_effect,
-                DependencyMissingError=type("DependencyMissingError", (Exception,), {}),
-            ),
-            "app.assets.database.queries.asset_reference": MagicMock(
-                get_reference_by_file_path=MagicMock(return_value=None),
-            ),
-            "app.database.db": MagicMock(create_session=MagicMock(return_value=fake_session_cm)),
-        }
+        mocked = _mocked_modules(register_file_in_place=register_side_effect)
 
         output = {
             "images": [
@@ -149,7 +139,7 @@ class TestEnrichOutputWithAssets(unittest.TestCase):
             ]
         }
 
-        with patch.dict("sys.modules", mocked_modules), \
+        with patch.dict("sys.modules", mocked), \
              patch("os.path.isfile", return_value=True):
             import importlib
             import comfy_execution.asset_enrichment as mod
@@ -176,28 +166,13 @@ class TestEnrichOutputWithAssets(unittest.TestCase):
         self.assertIn("id", result["images"][1])
 
     def test_path_traversal_subfolder_skipped(self):
-        fake_session_cm = MagicMock()
-        fake_session_cm.__enter__ = MagicMock(return_value=MagicMock())
-        fake_session_cm.__exit__ = MagicMock(return_value=False)
-
         register_mock = MagicMock(return_value=_make_register_result())
-        mocked_modules = {
-            "comfy.cli_args": MagicMock(args=_make_args(True)),
-            "folder_paths": MagicMock(get_directory_by_type=MagicMock(return_value=_DEFAULT_BASE)),
-            "app.assets.services.ingest": MagicMock(
-                register_file_in_place=register_mock,
-                DependencyMissingError=type("DependencyMissingError", (Exception,), {}),
-            ),
-            "app.assets.database.queries.asset_reference": MagicMock(
-                get_reference_by_file_path=MagicMock(return_value=None),
-            ),
-            "app.database.db": MagicMock(create_session=MagicMock(return_value=fake_session_cm)),
-        }
+        mocked = _mocked_modules(register_file_in_place=register_mock)
 
         output = {"images": [{"filename": "passwd", "subfolder": "../../etc", "type": "output"}]}
 
         # Do NOT patch os.path.abspath — real resolution is required for the containment check.
-        with patch.dict("sys.modules", mocked_modules), \
+        with patch.dict("sys.modules", mocked), \
              patch("os.path.isfile", return_value=True):
             import importlib
             import comfy_execution.asset_enrichment as mod
@@ -208,29 +183,14 @@ class TestEnrichOutputWithAssets(unittest.TestCase):
         register_mock.assert_not_called()
 
     def test_absolute_filename_skipped(self):
-        fake_session_cm = MagicMock()
-        fake_session_cm.__enter__ = MagicMock(return_value=MagicMock())
-        fake_session_cm.__exit__ = MagicMock(return_value=False)
-
         register_mock = MagicMock(return_value=_make_register_result())
-        mocked_modules = {
-            "comfy.cli_args": MagicMock(args=_make_args(True)),
-            "folder_paths": MagicMock(get_directory_by_type=MagicMock(return_value=_DEFAULT_BASE)),
-            "app.assets.services.ingest": MagicMock(
-                register_file_in_place=register_mock,
-                DependencyMissingError=type("DependencyMissingError", (Exception,), {}),
-            ),
-            "app.assets.database.queries.asset_reference": MagicMock(
-                get_reference_by_file_path=MagicMock(return_value=None),
-            ),
-            "app.database.db": MagicMock(create_session=MagicMock(return_value=fake_session_cm)),
-        }
+        mocked = _mocked_modules(register_file_in_place=register_mock)
 
         # Absolute filename — os.path.join discards earlier components when a later one is absolute.
         absolute_filename = os.path.abspath(os.sep + "etc" + os.sep + "passwd")
         output = {"images": [{"filename": absolute_filename, "subfolder": "", "type": "output"}]}
 
-        with patch.dict("sys.modules", mocked_modules), \
+        with patch.dict("sys.modules", mocked), \
              patch("os.path.isfile", return_value=True):
             import importlib
             import comfy_execution.asset_enrichment as mod

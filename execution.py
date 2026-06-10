@@ -424,10 +424,7 @@ def _send_cached_ui(server, node_id, display_node_id, cached, prompt_id, ui_outp
     if server.client_id is None:
         return
     cached_ui = cached.ui or {}
-    output = cached_ui.get("output", None)
-    if output:
-        output = enrich_output_with_assets(output)
-    server.send_sync("executed", { "node": node_id, "display_node": display_node_id, "output": output, "prompt_id": prompt_id }, server.client_id)
+    server.send_sync("executed", { "node": node_id, "display_node": display_node_id, "output": cached_ui.get("output", None), "prompt_id": prompt_id }, server.client_id)
     if cached.ui is not None:
         ui_outputs[node_id] = cached.ui
 
@@ -557,6 +554,10 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
                 asyncio.create_task(await_completion())
                 return (ExecutionResult.PENDING, None, None)
         if len(output_ui) > 0:
+            # Enrich at output-processing time (not in the send path) so assets
+            # are registered even when no client is connected, and the asset id
+            # flows into ui_outputs and the cache alongside the raw entries.
+            output_ui = enrich_output_with_assets(output_ui)
             ui_outputs[unique_id] = {
                 "meta": {
                     "node_id": unique_id,
@@ -567,7 +568,7 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
                 "output": output_ui
             }
             if server.client_id is not None:
-                server.send_sync("executed", { "node": unique_id, "display_node": display_node_id, "output": enrich_output_with_assets(output_ui), "prompt_id": prompt_id }, server.client_id)
+                server.send_sync("executed", { "node": unique_id, "display_node": display_node_id, "output": output_ui, "prompt_id": prompt_id }, server.client_id)
         if has_subgraph:
             cached_outputs = []
             new_node_ids = []
