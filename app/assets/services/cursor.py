@@ -10,10 +10,10 @@ so replaying a `desc` cursor against an `asc` request fails with
 `o` is mandatory on every payload — a cursor without it is rejected as
 malformed.
 
-Encoding is base64url with no padding. JSON serialization escapes `<`,
-`>`, `&`, U+2028, and U+2029 in encoded string values so asset names
-containing those characters produce a stable, byte-identical wire form
-across any compatible implementation of the same payload format.
+Encoding is base64url with no padding. Cursors are opaque tokens: the
+payload format is internal to this server, and clients must treat a
+cursor as a black box handed back via `next_cursor`. No byte-level
+compatibility with any other implementation is required.
 
 Time values are serialized as Unix microseconds (UTC) — microsecond
 precision is sufficient to round-trip the timestamps stored by the
@@ -45,10 +45,11 @@ class InvalidCursorError(ValueError):
 #
 # MAX_ENCODED_CURSOR_LENGTH is the decode-path guard, sized comfortably above
 # the largest cursor the per-field caps can produce. Worst case is value + id
-# at their caps with every character escape-expanding to the six-byte `\uXXXX`
-# form, which is ~5.2 KB once base64url-encoded. At 8192 the encoder can never
-# mint a cursor that exceeds it, so a freshly minted cursor always decodes on
-# the next request and there is no user-visible "cursor too long" failure.
+# at their caps with every character JSON-escaping to the six-byte `\uXXXX`
+# form (control characters), which is ~5.2 KB once base64url-encoded. At 8192
+# the encoder can never mint a cursor that exceeds it, so a freshly minted
+# cursor always decodes on the next request and there is no user-visible
+# "cursor too long" failure.
 MAX_ENCODED_CURSOR_LENGTH = 8192
 MAX_CURSOR_VALUE_LENGTH = 512
 MAX_CURSOR_ID_LENGTH = 128
@@ -63,27 +64,6 @@ class CursorPayload:
 
 
 _VALID_ORDERS = ("asc", "desc")
-
-
-def _apply_wire_compatible_json_escapes(raw: str) -> str:
-    """Escape the characters the cursor wire format requires escaped.
-
-    The wire format escapes `<`, `>`, `&`, U+2028, and U+2029 — and nothing
-    else, leaving other non-ASCII as literal UTF-8 — so a value carrying any of
-    them encodes to identical bytes across every compatible implementation of
-    the payload format. None of these characters appear in JSON structural
-    syntax, so a global replace on the serialized output can only touch encoded
-    string values. Explicit `\\uXXXX` escapes for U+2028 / U+2029 keep this
-    source stable against editor / git tooling that normalizes those invisible
-    separators.
-    """
-    return (
-        raw.replace("<", "\\u003c")
-           .replace(">", "\\u003e")
-           .replace("&", "\\u0026")
-           .replace("\u2028", "\\u2028")
-           .replace("\u2029", "\\u2029")
-    )
 
 
 def encode_cursor(sort_field: str, value: str, id: str, order: str = "desc") -> str:
@@ -106,14 +86,10 @@ def encode_cursor(sort_field: str, value: str, id: str, order: str = "desc") -> 
         raise InvalidCursorError("value exceeds maximum length")
     payload = {"s": sort_field, "v": value, "id": id, "o": order}
     raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
-    raw = _apply_wire_compatible_json_escapes(raw)
-    encoded = base64.urlsafe_b64encode(raw.encode("utf-8")).rstrip(b"=").decode("ascii")
     # No mint-time length guard is needed: the per-field caps above bound the
     # encoded length well below MAX_ENCODED_CURSOR_LENGTH (see its definition),
     # so the encoder can never produce a cursor the decode path would reject.
-    # This keeps encoder/decoder symmetry without a user-visible failure when a
-    # value happens to be multibyte- or escape-heavy.
-    return encoded
+    return base64.urlsafe_b64encode(raw.encode("utf-8")).rstrip(b"=").decode("ascii")
 
 
 def encode_cursor_from_time(sort_field: str, t: datetime, id: str, order: str = "desc") -> str:
