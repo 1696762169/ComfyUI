@@ -9,6 +9,7 @@ import pytest
 from app.assets.services.path_utils import (
     compute_relative_filename,
     get_comfy_models_folders,
+    get_model_folder_matches,
     get_asset_category_and_relative_path,
     get_asset_path_info,
     get_asset_response_path_info,
@@ -135,6 +136,7 @@ class TestGetAssetPathInfo:
 
         assert response_info.asset_type == "model"
         assert response_info.model_folder == "controlnet"
+        assert response_info.model_folders == ["controlnet"]
         assert response_info.file_path == "models/controlnet/pose.safetensors"
         assert response_info.display_name == "pose.safetensors"
 
@@ -158,6 +160,7 @@ class TestGetAssetPathInfo:
 
         assert response_a.asset_type == response_b.asset_type == "model"
         assert response_a.model_folder == response_b.model_folder == "checkpoints"
+        assert response_a.model_folders == response_b.model_folders == ["checkpoints"]
         assert response_a.file_path == "models/checkpoints/subdir/model_a.safetensors"
         assert response_b.file_path == "models/checkpoints/subdir/model_b.safetensors"
         assert response_a.display_name == "subdir/model_a.safetensors"
@@ -196,6 +199,7 @@ class TestGetAssetPathInfo:
         response_info = get_asset_response_path_info(str(f))
         assert response_info.file_path == "input/subdir/photo.png"
         assert response_info.display_name == "subdir/photo.png"
+        assert response_info.model_folders is None
 
     def test_output_backed_registered_model_folder_is_model(self, fake_dirs):
         output_checkpoints_dir = fake_dirs["output"] / "checkpoints"
@@ -216,6 +220,48 @@ class TestGetAssetPathInfo:
 
         assert response_info.file_path == "models/checkpoints/saved.safetensors"
         assert response_info.display_name == "saved.safetensors"
+        assert response_info.model_folders == ["checkpoints"]
+
+    def test_shared_root_returns_all_matching_model_folders(self, fake_dirs):
+        shared_root = fake_dirs["models"].parent / "shared"
+        shared_root.mkdir()
+        f = shared_root / "checkpoints" / "foo.safetensors"
+        f.parent.mkdir()
+        f.touch()
+
+        with patch(
+            "app.assets.services.path_utils.get_comfy_models_folders",
+            return_value=[
+                ("checkpoints", [str(shared_root)]),
+                ("loras", [str(shared_root)]),
+                ("vae", [str(shared_root)]),
+            ],
+        ):
+            context = resolve_asset_path_context(str(f))
+            response_info = get_asset_response_path_info(str(f))
+
+        assert context.model_folder == "checkpoints"
+        assert response_info.model_folder == "checkpoints"
+        assert response_info.model_folders == ["checkpoints", "loras", "vae"]
+        assert response_info.display_name == "checkpoints/foo.safetensors"
+        assert response_info.file_path == "models/checkpoints/checkpoints/foo.safetensors"
+
+    def test_model_folder_matches_can_move_primary_first(self, fake_dirs):
+        shared_root = fake_dirs["models"].parent / "shared"
+        shared_root.mkdir()
+        f = shared_root / "foo.safetensors"
+        f.touch()
+
+        with patch(
+            "app.assets.services.path_utils.get_comfy_models_folders",
+            return_value=[
+                ("checkpoints", [str(shared_root)]),
+                ("loras", [str(shared_root)]),
+            ],
+        ):
+            matches = get_model_folder_matches(str(f), primary_model_folder="loras")
+
+        assert matches == ["loras", "checkpoints"]
 
     def test_registered_model_folder_can_contain_slash(self, fake_dirs):
         nested_model_dir = fake_dirs["models"].parent / "text_encoders" / "clip"
@@ -264,10 +310,14 @@ class TestGetAssetPathInfo:
             ],
         ):
             context = resolve_asset_path_context(str(f))
+            response_info = get_asset_response_path_info(str(f))
 
         assert context.asset_type == "model"
         assert context.model_folder == "text_encoders/clip"
         assert context.relative_path == "clip.safetensors"
+
+        assert response_info.model_folder == "text_encoders/clip"
+        assert response_info.model_folders == ["text_encoders/clip", "text_encoders"]
 
     def test_deepest_registered_model_base_wins_independent_of_registration_order(
         self, fake_dirs

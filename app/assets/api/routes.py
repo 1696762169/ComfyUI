@@ -207,11 +207,13 @@ def _build_asset_response(result: schemas.AssetDetailResult | schemas.UploadResu
 
     asset_type = None
     model_folder = None
+    model_folders = None
     file_path = None
     display_name = None
     if path_info:
         asset_type = path_info.asset_type
         model_folder = path_info.model_folder
+        model_folders = path_info.model_folders
         file_path = path_info.file_path
         display_name = path_info.display_name
 
@@ -224,6 +226,7 @@ def _build_asset_response(result: schemas.AssetDetailResult | schemas.UploadResu
         size=int(result.asset.size_bytes) if result.asset else None,
         mime_type=result.asset.mime_type if result.asset else None,
         model_folder=model_folder,
+        model_folders=model_folders,
         asset_type=asset_type,
         tags=result.tags,
         preview_url=preview_url,

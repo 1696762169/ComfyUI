@@ -25,6 +25,10 @@ class Asset(BaseModel):
         default=None,
         description="Exact, case-sensitive registered ComfyUI model folder name. Present only when asset_type is `model`.",
     )
+    model_folders: list[str] | None = Field(
+        default=None,
+        description="Exact, case-sensitive registered ComfyUI model folder names whose roots contain this asset. Present only when asset_type is `model`. This is plural membership for shared-root spike cases; `model_folder` remains the primary classification.",
+    )
     asset_type: Literal["model", "input", "output", "temp"] | None = None
     tags: list[str] = Field(default_factory=list)
     preview_url: str | None = None

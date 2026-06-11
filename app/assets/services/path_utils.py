@@ -24,6 +24,7 @@ class AssetPathInfo:
 class AssetResponsePathInfo(AssetPathInfo):
     file_path: str
     display_name: str | None
+    model_folders: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,39 @@ def _normalize_relative_path(relative_path: str) -> str | None:
         return None
 
     return "/".join(parts)
+
+
+def get_model_folder_matches(
+    file_path: str,
+    primary_model_folder: str | None = None,
+) -> list[str]:
+    """Return all registered model-folder names whose roots contain ``file_path``.
+
+    This is the plural-membership spike counterpart to the singular
+    ``model_folder`` classification. The singular classification still chooses
+    one primary folder (deepest root, then registry order), but broad shared
+    roots can make a physical file visible through several registered buckets.
+
+    Results preserve registry order, with ``primary_model_folder`` moved to the
+    front when provided. Duplicate folder names are collapsed.
+    """
+    fp_abs = os.path.abspath(file_path)
+    matches: list[str] = []
+    seen: set[str] = set()
+
+    for model_folder, bases in get_comfy_models_folders():
+        for base in bases:
+            if Path(fp_abs).is_relative_to(os.path.abspath(base)):
+                if model_folder not in seen:
+                    matches.append(model_folder)
+                    seen.add(model_folder)
+                break
+
+    if primary_model_folder in seen and matches[0] != primary_model_folder:
+        matches.remove(primary_model_folder)
+        matches.insert(0, primary_model_folder)
+
+    return matches
 
 
 def resolve_asset_path_context(file_path: str) -> AssetPathContext:
@@ -305,6 +339,9 @@ def get_asset_response_path_info(file_path: str) -> AssetResponsePathInfo:
         model_folder=context.model_folder,
         file_path=logical_file_path,
         display_name=display_name,
+        model_folders=get_model_folder_matches(file_path, context.model_folder)
+        if context.asset_type == "model"
+        else None,
     )
 
 
@@ -362,6 +399,7 @@ def get_stored_asset_response_path_info(
             model_folder=model_folder,
             file_path=logical_file_path,
             display_name=display_name,
+            model_folders=get_model_folder_matches(file_path, model_folder),
         )
 
     root_by_type = {
@@ -379,6 +417,7 @@ def get_stored_asset_response_path_info(
         model_folder=None,
         file_path=logical_file_path,
         display_name=display_name,
+        model_folders=None,
     )
 
 

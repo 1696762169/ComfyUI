@@ -239,8 +239,43 @@ class TestBuildAssetResponsePathFields:
 
         assert asset.asset_type == "model"
         assert asset.model_folder == "checkpoints"
+        assert asset.model_folders == ["checkpoints"]
         assert asset.display_name == "sub/model.safetensors"
         assert asset.file_path == "models/checkpoints/sub/model.safetensors"
+
+    def test_model_response_includes_plural_model_folder_memberships(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        shared_dir = tmp_path / "models"
+        shared_dir.mkdir()
+        model_path = shared_dir / "checkpoints" / "model.safetensors"
+        model_path.parent.mkdir()
+        model_path.write_text("data")
+        monkeypatch.setattr(
+            "app.assets.services.path_utils.get_comfy_models_folders",
+            lambda: [
+                ("checkpoints", [str(shared_dir)]),
+                ("loras", [str(shared_dir)]),
+                ("vae", [str(shared_dir)]),
+            ],
+        )
+
+        asset = _build_asset_response(
+            _asset_detail_result(
+                _reference_data(
+                    name="model.safetensors",
+                    file_path=str(model_path),
+                    asset_type="model",
+                    model_folder="checkpoints",
+                )
+            )
+        )
+
+        assert asset.asset_type == "model"
+        assert asset.model_folder == "checkpoints"
+        assert asset.model_folders == ["checkpoints", "loras", "vae"]
+        assert asset.display_name == "checkpoints/model.safetensors"
+        assert asset.file_path == "models/checkpoints/checkpoints/model.safetensors"
 
     def test_input_output_response_fields_use_persisted_classification(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -284,10 +319,12 @@ class TestBuildAssetResponsePathFields:
 
         assert input_asset.asset_type == "input"
         assert input_asset.model_folder is None
+        assert input_asset.model_folders is None
         assert input_asset.display_name == "sub/image.png"
         assert input_asset.file_path == "input/sub/image.png"
         assert output_asset.asset_type == "output"
         assert output_asset.model_folder is None
+        assert output_asset.model_folders is None
         assert output_asset.display_name == "result.png"
         assert output_asset.file_path == "output/result.png"
 
@@ -298,6 +335,7 @@ class TestBuildAssetResponsePathFields:
 
         assert asset.asset_type is None
         assert asset.model_folder is None
+        assert asset.model_folders is None
         assert asset.display_name is None
         assert asset.file_path is None
 
