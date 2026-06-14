@@ -85,7 +85,7 @@ class ARVideoI2V(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="ARVideoI2V",
-            category="model/conditioning/video_models",
+            category="model/conditioning/autoregressive",
             inputs=[
                 io.Model.Input("model"),
                 io.Vae.Input("vae"),

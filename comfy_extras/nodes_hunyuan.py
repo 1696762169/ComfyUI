@@ -81,7 +81,7 @@ class HunyuanVideo15ImageToVideo(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="HunyuanVideo15ImageToVideo",
-            category="model/conditioning/video_models",
+            category="model/conditioning/hunyuan video",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),
@@ -132,7 +132,7 @@ class HunyuanVideo15SuperResolution(io.ComfyNode):
         return io.Schema(
             node_id="HunyuanVideo15SuperResolution",
             display_name="Hunyuan Video 1.5 Super Resolution",
-            category="model/conditioning/video_models",
+            category="model/conditioning/hunyuan video",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),
@@ -227,7 +227,7 @@ class HunyuanVideo15LatentUpscaleWithModel(io.ComfyNode):
         return io.Schema(
             node_id="HunyuanVideo15LatentUpscaleWithModel",
             display_name="Hunyuan Video 15 Latent Upscale With Model",
-            category="model/latent",
+            category="model/latent/hunyhuan video",
             inputs=[
                 io.LatentUpscaleModel.Input("model"),
                 io.Latent.Input("samples"),
@@ -308,7 +308,7 @@ class HunyuanImageToVideo(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="HunyuanImageToVideo",
-            category="model/conditioning/video_models",
+            category="model/conditioning/hunyuan video",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Vae.Input("vae"),
@@ -384,7 +384,7 @@ class HunyuanRefinerLatent(io.ComfyNode):
         return io.Schema(
             node_id="HunyuanRefinerLatent",
             display_name="Hunyuan Latent Refiner",
-            category="model/conditioning/video_models",
+            category="model/conditioning/hunyuan video",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),

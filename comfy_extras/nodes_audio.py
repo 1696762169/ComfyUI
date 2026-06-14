@@ -41,7 +41,7 @@ class ConditioningStableAudio(IO.ComfyNode):
     def define_schema(cls):
         return IO.Schema(
             node_id="ConditioningStableAudio",
-            category="model/conditioning",
+            category="model/conditioning/stable audio",
             inputs=[
                 IO.Conditioning.Input("positive"),
                 IO.Conditioning.Input("negative"),

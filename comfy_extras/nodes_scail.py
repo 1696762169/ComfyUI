@@ -123,7 +123,7 @@ class WanSCAILToVideo(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="WanSCAILToVideo",
-            category="model/conditioning/video_models",
+            category="model/conditioning/wan/scail",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),
@@ -257,7 +257,7 @@ class SCAIL2ColoredMask(io.ComfyNode):
         return io.Schema(
             node_id="SCAIL2ColoredMask",
             display_name="Create SCAIL-2 Colored Mask",
-            category="model/conditioning/scail",
+            category="model/conditioning/wan/scail",
             inputs=[
                 SAM3TrackData.Input("driving_track_data", tooltip="SAM3 track of the driving pose video. Will be rendered into the pose_video_mask output."),
                 SAM3TrackData.Input("ref_track_data", optional=True, tooltip="SAM3 track of the reference image."),

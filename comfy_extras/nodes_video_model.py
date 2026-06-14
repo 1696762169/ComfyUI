@@ -41,7 +41,7 @@ class SVD_img2vid_Conditioning:
 
     FUNCTION = "encode"
 
-    CATEGORY = "model/conditioning/video_models"
+    CATEGORY = "model/conditioning/stable video"
 
     def encode(self, clip_vision, init_image, vae, width, height, video_frames, motion_bucket_id, fps, augmentation_level):
         output = clip_vision.encode_image(init_image)

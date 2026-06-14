@@ -175,7 +175,7 @@ class VOIDInpaintConditioning(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="VOIDInpaintConditioning",
-            category="model/conditioning/video_models",
+            category="model/conditioning/void",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),

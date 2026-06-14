@@ -11,7 +11,7 @@ class TextEncodeAceStepAudio(IO.ComfyNode):
     def define_schema(cls):
         return IO.Schema(
             node_id="TextEncodeAceStepAudio",
-            category="model/conditioning",
+            category="model/conditioning/ace",
             inputs=[
                 IO.Clip.Input("clip"),
                 IO.String.Input("tags", multiline=True, dynamic_prompts=True),
@@ -33,7 +33,7 @@ class TextEncodeAceStepAudio15(IO.ComfyNode):
     def define_schema(cls):
         return IO.Schema(
             node_id="TextEncodeAceStepAudio1.5",
-            category="model/conditioning",
+            category="model/conditioning/ace",
             inputs=[
                 IO.Clip.Input("clip"),
                 IO.String.Input("tags", multiline=True, dynamic_prompts=True),
