@@ -67,7 +67,7 @@ class EmptyAceStepLatentAudio(IO.ComfyNode):
         return IO.Schema(
             node_id="EmptyAceStepLatentAudio",
             display_name="Empty Ace Step 1.0 Latent Audio",
-            category="model/latent/audio",
+            category="model/latent/ace",
             inputs=[
                 IO.Float.Input("seconds", default=120.0, min=1.0, max=1000.0, step=0.1),
                 IO.Int.Input(
@@ -90,7 +90,7 @@ class EmptyAceStep15LatentAudio(IO.ComfyNode):
         return IO.Schema(
             node_id="EmptyAceStep1.5LatentAudio",
             display_name="Empty Ace Step 1.5 Latent Audio",
-            category="model/latent/audio",
+            category="model/latent/ace",
             inputs=[
                 IO.Float.Input("seconds", default=120.0, min=1.0, max=1000.0, step=0.01),
                 IO.Int.Input(

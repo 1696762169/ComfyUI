@@ -41,7 +41,7 @@ class EmptySD3LatentImage(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="EmptySD3LatentImage",
-            category="model/latent/sd3",
+            category="model/latent/stable diffusion",
             inputs=[
                 io.Int.Input("width", default=1024, min=16, max=nodes.MAX_RESOLUTION, step=16),
                 io.Int.Input("height", default=1024, min=16, max=nodes.MAX_RESOLUTION, step=16),

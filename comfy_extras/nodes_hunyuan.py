@@ -41,7 +41,7 @@ class EmptyHunyuanLatentVideo(io.ComfyNode):
         return io.Schema(
             node_id="EmptyHunyuanLatentVideo",
             display_name="Empty HunyuanVideo 1.0 Latent",
-            category="model/latent/video",
+            category="model/latent/hunyuan video",
             inputs=[
                 io.Int.Input("width", default=848, min=16, max=nodes.MAX_RESOLUTION, step=16),
                 io.Int.Input("height", default=480, min=16, max=nodes.MAX_RESOLUTION, step=16),
@@ -67,6 +67,7 @@ class EmptyHunyuanVideo15Latent(EmptyHunyuanLatentVideo):
         schema = super().define_schema()
         schema.node_id = "EmptyHunyuanVideo15Latent"
         schema.display_name = "Empty HunyuanVideo 1.5 Latent"
+        schema.category = "model/latent/hunyuan video"
         return schema
 
     @classmethod
@@ -359,7 +360,7 @@ class EmptyHunyuanImageLatent(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="EmptyHunyuanImageLatent",
-            category="model/latent",
+            category="model/latent/hunyuan image",
             inputs=[
                 io.Int.Input("width", default=2048, min=64, max=nodes.MAX_RESOLUTION, step=32),
                 io.Int.Input("height", default=2048, min=64, max=nodes.MAX_RESOLUTION, step=32),

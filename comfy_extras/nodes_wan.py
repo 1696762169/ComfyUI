@@ -256,7 +256,7 @@ class WanFunInpaintToVideo(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="WanFunInpaintToVideo",
-            category="model/conditioning/wan/inpaint",
+            category="model/conditioning/wan/fun inpaint",
             inputs=[
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),
@@ -375,7 +375,8 @@ class TrimVideoLatent(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="TrimVideoLatent",
-            category="model/latent/video",
+            display_name="Trim Video Latent",
+            category="model/latent",
             inputs=[
                 io.Latent.Input("samples"),
                 io.Int.Input("trim_amount", default=0, min=0, max=99999),

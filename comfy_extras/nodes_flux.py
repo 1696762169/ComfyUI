@@ -40,7 +40,7 @@ class EmptyFlux2LatentImage(io.ComfyNode):
         return io.Schema(
             node_id="EmptyFlux2LatentImage",
             display_name="Empty Flux 2 Latent",
-            category="model/latent",
+            category="model/latent/flux",
             inputs=[
                 io.Int.Input("width", default=1024, min=16, max=nodes.MAX_RESOLUTION, step=16),
                 io.Int.Input("height", default=1024, min=16, max=nodes.MAX_RESOLUTION, step=16),

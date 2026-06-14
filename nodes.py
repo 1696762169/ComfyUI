@@ -389,7 +389,7 @@ class VAEEncodeForInpaint:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
 
-    CATEGORY = "model/latent/inpaint"
+    CATEGORY = "model/latent"
 
     def encode(self, vae, pixels, mask, grow_mask_by=6):
         downscale_ratio = vae.spacial_compression_encode()
@@ -1518,13 +1518,11 @@ class LatentCrop:
 class SetLatentNoiseMask:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": { "samples": ("LATENT",),
-                              "mask": ("MASK",),
-                              }}
+        return {"required": { "samples": ("LATENT",), "mask": ("MASK",), }}
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "set_mask"
 
-    CATEGORY = "model/latent/inpaint"
+    CATEGORY = "model/latent"
 
     def set_mask(self, samples, mask):
         s = samples.copy()
@@ -2135,7 +2133,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LatentUpscaleBy": "Upscale Latent By",
     "LatentComposite": "Latent Composite",
     "LatentBlend": "Latent Blend",
-    "LatentFromBatch" : "Latent From Batch",
+    "LatentFromBatch" : "Get Latent From Batch",
     "RepeatLatentBatch": "Repeat Latent Batch",
     # Image
     "EmptyImage": "Empty Image",

@@ -13,7 +13,7 @@ class EmptyChromaRadianceLatentImage(io.ComfyNode):
     def define_schema(cls) -> io.Schema:
         return io.Schema(
             node_id="EmptyChromaRadianceLatentImage",
-            category="model/latent/chroma_radiance",
+            category="model/latent/chroma radiance",
             inputs=[
                 io.Int.Input(id="width", default=1024, min=16, max=nodes.MAX_RESOLUTION, step=16),
                 io.Int.Input(id="height", default=1024, min=16, max=nodes.MAX_RESOLUTION, step=16),
