@@ -783,6 +783,10 @@ class VAE:
             elif "bottleneck.block.codebook.weight" in sd:
                 self.cube3d = True
                 self.latent_dim = 1
+                # VAEDecodeCube calls first_stage_model.decode_indices/extract_geometry
+                # directly (not through the patcher-managed forward), so the weights must
+                # be fully resident on-device. Disable dynamic streaming offload.
+                self.disable_offload = True
                 embed_dim = sd["bottleneck.block.codebook.weight"].shape[1]
                 num_codes = sd["bottleneck.block.codebook.weight"].shape[0]
                 width = sd["bottleneck.block.c_out.weight"].shape[0]

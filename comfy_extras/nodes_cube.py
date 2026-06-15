@@ -38,7 +38,10 @@ class EmptyCubeLatent(IO.ComfyNode):
 
     @classmethod
     def execute(cls, num_tokens, batch_size) -> IO.NodeOutput:
-        latent = torch.zeros([batch_size, num_tokens], device=comfy.model_management.intermediate_device())
+        # Trailing singleton dim keeps this a 3D latent so it flows through ComfyUI's
+        # conds/noise pipeline (encode_model_conds reads noise.shape[2]); the sampler
+        # only uses dim 1 (num_tokens).
+        latent = torch.zeros([batch_size, num_tokens, 1], device=comfy.model_management.intermediate_device())
         return IO.NodeOutput({"samples": latent, "type": "cube_tokens"})
 
 
@@ -121,7 +124,8 @@ class VAEDecodeCube(IO.ComfyNode):
     def execute(cls, vae, samples, resolution_base, chunk_size) -> IO.NodeOutput:
         comfy.model_management.load_models_gpu([vae.patcher])
         tok = vae.first_stage_model
-        ids = samples["samples"][:, :tok.cfg_num_encoder_latents].long()
+        ids = samples["samples"]
+        ids = ids.reshape(ids.shape[0], -1)[:, :tok.cfg_num_encoder_latents].long()
         ids = ids.clamp(0, tok.cfg_num_codes - 1).to(vae.device)
 
         latents = tok.decode_indices(ids)

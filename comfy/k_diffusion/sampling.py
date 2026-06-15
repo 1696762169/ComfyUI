@@ -2016,12 +2016,16 @@ def sample_cube(model, x, sigmas, extra_args=None, callback=None, disable=None, 
         bbox = torch.zeros((c.shape[0], 3), device=device, dtype=c.dtype)
         return torch.cat([c, cube.bbox_proj(bbox).unsqueeze(1)], dim=1)
 
-    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=autocast_enabled):
-        cond = add_bbox(cube.encode_text(pos.to(device=device, dtype=weight_dtype)))
-        if use_cfg:
-            ucond = add_bbox(cube.encode_text(neg.to(device=device, dtype=weight_dtype)))
-            cond = torch.cat([cond, ucond], dim=0)
+    # Conditioning (text_proj + bbox_proj) is computed in the model's weight dtype
+    # OUTSIDE the bf16 autocast block, matching upstream cube's Engine.prepare_inputs
+    # (run_clip/encode_text run in full precision). The autocast only covers the
+    # autoregressive transformer forward, exactly like Engine.run_gpt.
+    cond = add_bbox(cube.encode_text(pos.to(device=device, dtype=weight_dtype)))
+    if use_cfg:
+        ucond = add_bbox(cube.encode_text(neg.to(device=device, dtype=weight_dtype)))
+        cond = torch.cat([cond, ucond], dim=0)
 
+    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=autocast_enabled):
         bos = torch.full((cond.shape[0], 1), cube.shape_bos_id, dtype=torch.long, device=device)
         embed = cube.encode_token(bos)
         Bp, input_seq_len, dim = embed.shape
