@@ -4,9 +4,20 @@ Provides normalization and helper functions for job status tracking.
 """
 
 import uuid
-from typing import Optional
+from typing import Callable, Optional
 
 from comfy_api.internal import prune_dict
+
+
+# Result of classifying a job for cancellation.
+# 'running'  -> job is currently executing (interrupt it)
+# 'pending'  -> job is queued but not started (dequeue it)
+# 'terminal' -> job already finished (present in history); cancel is a no-op
+# 'unknown'  -> job id is not present anywhere
+CANCEL_RUNNING = 'running'
+CANCEL_PENDING = 'pending'
+CANCEL_TERMINAL = 'terminal'
+CANCEL_UNKNOWN = 'unknown'
 
 
 class JobStatus:
@@ -407,3 +418,52 @@ def get_all_jobs(
         jobs = jobs[:limit]
 
     return (jobs, total_count)
+
+
+def classify_job_for_cancel(prompt_id: str, running: list, queued: list, history: dict) -> str:
+    """Classify a job id for cancellation.
+
+    Returns one of CANCEL_RUNNING, CANCEL_PENDING, CANCEL_TERMINAL, CANCEL_UNKNOWN.
+
+    Queue items are tuples whose second element (index 1) is the prompt_id.
+    History is a dict keyed by prompt_id, so a job present there has already
+    finished and cancelling it is a no-op.
+    """
+    for item in running:
+        if item[1] == prompt_id:
+            return CANCEL_RUNNING
+    for item in queued:
+        if item[1] == prompt_id:
+            return CANCEL_PENDING
+    if prompt_id in history:
+        return CANCEL_TERMINAL
+    return CANCEL_UNKNOWN
+
+
+def cancel_job(
+    prompt_id: str,
+    running: list,
+    queued: list,
+    history: dict,
+    interrupt: Callable[[], None],
+    dequeue: Callable[[str], bool],
+) -> str:
+    """Cancel a single job by id, regardless of state.
+
+    Maps the cancel onto the runtime's existing mechanics:
+      - a running job is interrupted via ``interrupt``
+      - a pending job is removed from the queue via ``dequeue``
+      - a job that already finished (terminal) is a no-op
+      - an unknown id is a no-op (callers that need fail-fast behaviour should
+        validate ids up front with ``classify_job_for_cancel``)
+
+    Returns the classification that was acted on (one of the CANCEL_* values),
+    so callers can log or report what happened.
+    """
+    classification = classify_job_for_cancel(prompt_id, running, queued, history)
+    if classification == CANCEL_RUNNING:
+        interrupt()
+    elif classification == CANCEL_PENDING:
+        dequeue(prompt_id)
+    # CANCEL_TERMINAL and CANCEL_UNKNOWN are intentional no-ops.
+    return classification

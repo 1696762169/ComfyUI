@@ -8,7 +8,17 @@ import time
 import nodes
 import folder_paths
 import execution
-from comfy_execution.jobs import JobStatus, get_job, get_all_jobs, validate_job_id
+from comfy_execution.jobs import (
+    JobStatus,
+    get_job,
+    get_all_jobs,
+    validate_job_id,
+    cancel_job,
+    classify_job_for_cancel,
+    CANCEL_PENDING,
+    CANCEL_RUNNING,
+    CANCEL_UNKNOWN,
+)
 import uuid
 import urllib
 import json
@@ -898,6 +908,96 @@ class PromptServer():
                 )
 
             return web.json_response(job)
+
+        def _cancel_job_by_id(job_id):
+            """Cancel a single job by id using the queue's existing mechanics.
+
+            Running jobs are interrupted (same mechanism as /interrupt); pending
+            jobs are dequeued (same mechanism as /queue {"delete": [...]}).
+            Already-finished or unknown ids are no-ops. State-agnostic.
+
+            Returns True when a cancel was actually dispatched (running or
+            pending job), False when the call was a no-op (terminal/unknown id).
+            """
+            running, queued = self.prompt_queue.get_current_queue()
+            history = self.prompt_queue.get_history()
+
+            def interrupt():
+                logging.info(f"Cancelling running prompt {job_id}")
+                nodes.interrupt_processing()
+
+            def dequeue(prompt_id):
+                logging.info(f"Cancelling pending prompt {prompt_id}")
+                return self.prompt_queue.delete_queue_item(lambda a: a[1] == prompt_id)
+
+            classification = cancel_job(job_id, running, queued, history, interrupt, dequeue)
+            return classification in (CANCEL_RUNNING, CANCEL_PENDING)
+
+        @routes.post("/api/jobs/{job_id}/cancel")
+        async def cancel_job_by_id(request):
+            """Cancel a single job by id, regardless of state.
+
+            Idempotent: cancelling a job that has already finished, or an id
+            that is not known, returns 200 with {"cancelled": false} rather
+            than an error.
+            """
+            job_id = request.match_info.get("job_id", None)
+            if not job_id:
+                return web.json_response(
+                    {"error": "job_id is required"},
+                    status=400
+                )
+
+            cancelled = _cancel_job_by_id(job_id)
+            return web.json_response({"cancelled": cancelled})
+
+        @routes.post("/api/jobs/cancel")
+        async def cancel_jobs_batch(request):
+            """Cancel a batch of jobs by id.
+
+            Body: {"job_ids": ["<uuid>", ...]}
+
+            Fail-fast: if any provided id is unknown (not running, pending, or
+            in history) the request returns 404 and no job is cancelled, so the
+            call has no partial side effects.
+            """
+            try:
+                json_data = await request.json()
+            except json.JSONDecodeError:
+                return web.json_response(
+                    {"error": "Request body must be valid JSON"},
+                    status=400
+                )
+
+            job_ids = json_data.get("job_ids") if isinstance(json_data, dict) else None
+            if not isinstance(job_ids, list):
+                return web.json_response(
+                    {"error": "job_ids must be a list"},
+                    status=400
+                )
+
+            # Validate every id exists before cancelling anything. A snapshot of
+            # the queue + history is taken once so the membership check is
+            # consistent for the whole batch.
+            running, queued = self.prompt_queue.get_current_queue()
+            history = self.prompt_queue.get_history()
+
+            unknown_ids = [
+                jid for jid in job_ids
+                if classify_job_for_cancel(jid, running, queued, history) == CANCEL_UNKNOWN
+            ]
+            if unknown_ids:
+                return web.json_response(
+                    {"error": "Job(s) not found", "unknown_ids": unknown_ids},
+                    status=404
+                )
+
+            cancelled = False
+            for jid in job_ids:
+                if _cancel_job_by_id(jid):
+                    cancelled = True
+
+            return web.json_response({"cancelled": cancelled})
 
         @routes.get("/history")
         async def get_history(request):

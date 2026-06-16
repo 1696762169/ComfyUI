@@ -673,6 +673,49 @@ components:
                 - created_at
                 - updated_at
             type: object
+        JobsBatchCancelNotFoundResponse:
+            description: |
+                Returned with 404 from POST /api/jobs/cancel when one or more
+                requested job ids are unknown. The batch is fail-fast, so no job
+                was cancelled.
+            properties:
+                error:
+                    description: Human-readable error message
+                    type: string
+                unknown_ids:
+                    description: The subset of requested job ids that were not found
+                    items:
+                        type: string
+                    type: array
+            required:
+                - error
+                - unknown_ids
+            type: object
+        JobsBatchCancelRequest:
+            additionalProperties: false
+            description: Request body for batch job cancellation
+            properties:
+                job_ids:
+                    description: Ids (UUIDs) of the jobs to cancel
+                    items:
+                        format: uuid
+                        type: string
+                    type: array
+            required:
+                - job_ids
+            type: object
+        JobsBatchCancelResponse:
+            description: Response for POST /api/jobs/cancel when all requested jobs were known.
+            properties:
+                cancelled:
+                    description: |
+                        True when a cancel event was dispatched for at least one job in
+                        the batch. False when every requested job was already in a
+                        terminal state (the call is still 200 — idempotent).
+                    type: boolean
+            required:
+                - cancelled
+            type: object
         JobsListResponse:
             description: Paginated list of jobs for the authenticated user.
             properties:
@@ -2853,6 +2896,56 @@ paths:
                                 $ref: '#/components/schemas/ErrorResponse'
                     description: Internal server error
             summary: List jobs with pagination and filtering
+            tags:
+                - workflow
+    /api/jobs/cancel:
+        post:
+            description: |
+                Cancel a batch of jobs by id, regardless of each job's state.
+
+                Fail-fast: if any provided id is unknown (not running, pending, or
+                present in history) the request returns 404 and no job is cancelled,
+                so the call has no partial side effects. When every id is known, all
+                jobs are cancelled and the call returns 200.
+            operationId: cancelJobs
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/JobsBatchCancelRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/JobsBatchCancelResponse'
+                    description: Success - All requested jobs were cancelled (or were already terminal)
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Bad Request - body is not valid JSON or job_ids is missing/not a list
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Unauthorized - Authentication required
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/JobsBatchCancelNotFoundResponse'
+                    description: Not Found - one or more job ids are unknown; no job was cancelled
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Internal server error - cancellation failed
+            summary: Cancel a batch of jobs
             tags:
                 - workflow
     /api/jobs/{job_id}:
