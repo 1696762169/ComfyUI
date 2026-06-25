@@ -53,7 +53,7 @@ def get_pin(module, subset="weights"):
     size = pin.nbytes
     comfy.model_management.ensure_pin_registerable(size)
 
-    if torch.cuda.cudart().cudaHostRegister(pin.data_ptr(), size, 1) != 0:
+    if comfy.model_management.host_register(pin.data_ptr(), size) != 0:
         comfy.model_management.discard_cuda_async_error()
         return pin
 
@@ -95,10 +95,10 @@ def pin_memory(module, subset="weights", size=None):
         extended = True
         pin = comfy_aimdo.torch.hostbuf_to_tensor(hostbuf)[offset:offset + size]
         pin.untyped_storage()._comfy_hostbuf = hostbuf
-        if torch.cuda.cudart().cudaHostRegister(pin.data_ptr(), size, 1) != 0:
+        if comfy.model_management.host_register(pin.data_ptr(), size) != 0:
             comfy.model_management.discard_cuda_async_error()
             comfy.model_management.free_registrations(size)
-            if torch.cuda.cudart().cudaHostRegister(pin.data_ptr(), size, 1) != 0:
+            if comfy.model_management.host_register(pin.data_ptr(), size) != 0:
                 comfy.model_management.discard_cuda_async_error()
                 del pin
                 hostbuf.truncate(offset, do_unregister=False)

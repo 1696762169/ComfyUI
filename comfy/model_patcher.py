@@ -1961,7 +1961,7 @@ class ModelPatcherDynamic(ModelPatcher):
                 if not module._pin_registered:
                     continue
                 size = module._pin.numel() * module._pin.element_size()
-                if torch.cuda.cudart().cudaHostUnregister(module._pin.data_ptr()) != 0:
+                if comfy.model_management.host_unregister(module._pin.data_ptr()) != 0:
                     comfy.model_management.discard_cuda_async_error()
                     continue
                 module._pin_registered = False

@@ -1274,13 +1274,148 @@ def force_channels_last():
     return False
 
 
+_INTEL_XPU_DISCRETE = None
+def is_intel_xpu_discrete():
+    # Returns True only if the active Intel XPU is a discrete GPU. torch.xpu does
+    # not expose the integrated-vs-discrete distinction, so we query Level Zero
+    # directly via ctypes. Works on Windows (ze_loader.dll) and Linux
+    # (libze_loader.so.1). Any failure or ambiguity returns False so a
+    # discrete-only fast path is never enabled by mistake.
+    global _INTEL_XPU_DISCRETE
+    if _INTEL_XPU_DISCRETE is not None:
+        return _INTEL_XPU_DISCRETE
+    _INTEL_XPU_DISCRETE = False
+    if not is_intel_xpu():
+        return False
+
+    try:
+        import ctypes
+        import ctypes.util
+
+        ZE_RESULT_SUCCESS = 0
+        ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES = 0x3
+        ZE_DEVICE_TYPE_GPU = 1
+        ZE_DEVICE_PROPERTY_FLAG_INTEGRATED = 1 << 0
+        ZE_MAX_DEVICE_NAME = 256
+
+        class ze_device_uuid_t(ctypes.Structure):
+            _fields_ = [("id", ctypes.c_ubyte * 16)]
+
+        class ze_device_properties_t(ctypes.Structure):
+            _fields_ = [
+                ("stype", ctypes.c_uint32),
+                ("pNext", ctypes.c_void_p),
+                ("type", ctypes.c_uint32),
+                ("vendorId", ctypes.c_uint32),
+                ("deviceId", ctypes.c_uint32),
+                ("flags", ctypes.c_uint32),
+                ("subdeviceId", ctypes.c_uint32),
+                ("coreClockRate", ctypes.c_uint32),
+                ("maxMemAllocSize", ctypes.c_uint64),
+                ("maxHardwareContexts", ctypes.c_uint32),
+                ("maxCommandQueuePriority", ctypes.c_uint32),
+                ("numThreadsPerEU", ctypes.c_uint32),
+                ("physicalEUSimdWidth", ctypes.c_uint32),
+                ("numEUsPerSubslice", ctypes.c_uint32),
+                ("numSubslicesPerSlice", ctypes.c_uint32),
+                ("numSlices", ctypes.c_uint32),
+                ("timerResolution", ctypes.c_uint64),
+                ("timestampValidBits", ctypes.c_uint32),
+                ("kernelTimestampValidBits", ctypes.c_uint32),
+                ("uuid", ze_device_uuid_t),
+                ("name", ctypes.c_char * ZE_MAX_DEVICE_NAME),
+            ]
+
+        if sys.platform == "win32":
+            loader_names = ["ze_loader.dll"]
+        else:
+            loader_names = [ctypes.util.find_library("ze_loader"), "libze_loader.so.1", "libze_loader.so"]
+
+        ze = None
+        for name in loader_names:
+            if not name:
+                continue
+            try:
+                ze = ctypes.CDLL(name)
+                break
+            except OSError:
+                pass
+        if ze is None:
+            return False
+
+        ze.zeInit.argtypes = [ctypes.c_uint32]
+        ze.zeInit.restype = ctypes.c_uint32
+        ze.zeDriverGet.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_void_p)]
+        ze.zeDriverGet.restype = ctypes.c_uint32
+        ze.zeDeviceGet.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_void_p)]
+        ze.zeDeviceGet.restype = ctypes.c_uint32
+        ze.zeDeviceGetProperties.argtypes = [ctypes.c_void_p, ctypes.POINTER(ze_device_properties_t)]
+        ze.zeDeviceGetProperties.restype = ctypes.c_uint32
+
+        if ze.zeInit(0) != ZE_RESULT_SUCCESS:
+            return False
+
+        try:
+            torch_device_id = int(torch.xpu.get_device_properties(torch.xpu.current_device()).device_id)
+        except Exception:
+            torch_device_id = None
+
+        driver_count = ctypes.c_uint32(0)
+        if ze.zeDriverGet(ctypes.byref(driver_count), None) != ZE_RESULT_SUCCESS or driver_count.value == 0:
+            return False
+        allocated_drivers = driver_count.value
+        drivers = (ctypes.c_void_p * allocated_drivers)()
+        if ze.zeDriverGet(ctypes.byref(driver_count), drivers) != ZE_RESULT_SUCCESS:
+            return False
+
+        gpu_devices = []  # (deviceId, is_integrated)
+        for i in range(min(driver_count.value, allocated_drivers)):
+            device_count = ctypes.c_uint32(0)
+            if ze.zeDeviceGet(drivers[i], ctypes.byref(device_count), None) != ZE_RESULT_SUCCESS:
+                return False
+            if device_count.value == 0:
+                continue
+            allocated_devices = device_count.value
+            devices = (ctypes.c_void_p * allocated_devices)()
+            if ze.zeDeviceGet(drivers[i], ctypes.byref(device_count), devices) != ZE_RESULT_SUCCESS:
+                return False
+            for j in range(min(device_count.value, allocated_devices)):
+                props = ze_device_properties_t()
+                props.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
+                props.pNext = None
+                if ze.zeDeviceGetProperties(devices[j], ctypes.byref(props)) != ZE_RESULT_SUCCESS:
+                    return False
+                if props.type != ZE_DEVICE_TYPE_GPU:
+                    continue
+                gpu_devices.append((int(props.deviceId), bool(props.flags & ZE_DEVICE_PROPERTY_FLAG_INTEGRATED)))
+
+        if not gpu_devices:
+            return False
+
+        if torch_device_id is not None:
+            matches = [integrated for device_id, integrated in gpu_devices if device_id == torch_device_id]
+            if matches:
+                # Fail closed if a duplicate PCI device id somehow mixes flags.
+                _INTEL_XPU_DISCRETE = not any(matches)
+                return _INTEL_XPU_DISCRETE
+
+        # No reliable match: only enable when every visible GPU is discrete so a
+        # mixed iGPU+dGPU system never enables streams while running on the iGPU.
+        _INTEL_XPU_DISCRETE = all(not integrated for _, integrated in gpu_devices)
+        return _INTEL_XPU_DISCRETE
+    except Exception as e:
+        logging.info("Could not determine Intel XPU type via Level Zero: {}".format(e))
+        _INTEL_XPU_DISCRETE = False
+        return False
+
+
 STREAMS = {}
 NUM_STREAMS = 0
 if args.async_offload is not None:
     NUM_STREAMS = args.async_offload
 else:
-    #  Enable by default on Nvidia and AMD
-    if is_nvidia() or is_amd():
+    #  Enable by default on Nvidia, AMD, and discrete Intel XPU
+    if not args.disable_async_offload and (is_nvidia() or is_amd() or is_intel_xpu_discrete()):
         NUM_STREAMS = 2
 
 if args.disable_async_offload:
@@ -1487,7 +1622,7 @@ PINNED_MEMORY = {}
 TOTAL_PINNED_MEMORY = 0
 MAX_PINNED_MEMORY = -1
 if not args.disable_pinned_memory:
-    if is_nvidia() or is_amd():
+    if is_nvidia() or is_amd() or is_intel_xpu():
         ram = get_total_memory(torch.device("cpu"))
         if WINDOWS:
             MAX_PINNED_MEMORY = ram * 0.40  # Windows limit is apparently 50%
@@ -1511,6 +1646,20 @@ def discard_cuda_async_error():
     except RuntimeError:
         #Dump it! We already know about it from the synchronous return
         pass
+
+def host_register(ptr, size):
+    # Intel XPU has no CUDA host-registration API. The pinnable buffers used by
+    # the DynamicVRAM path are already Level Zero host USM (allocated through the
+    # aimdo hostbuf / zeMemAllocHost), and pageable host memory is still usable
+    # for transfers, so registration is a no-op success on XPU.
+    if is_intel_xpu():
+        return 0
+    return torch.cuda.cudart().cudaHostRegister(ptr, size, 1)
+
+def host_unregister(ptr):
+    if is_intel_xpu():
+        return 0
+    return torch.cuda.cudart().cudaHostUnregister(ptr)
 
 def pin_memory(tensor):
     global TOTAL_PINNED_MEMORY
@@ -1540,7 +1689,7 @@ def pin_memory(tensor):
     if ptr == 0:
         return False
 
-    if torch.cuda.cudart().cudaHostRegister(ptr, size, 1) == 0:
+    if host_register(ptr, size) == 0:
         PINNED_MEMORY[ptr] = size
         TOTAL_PINNED_MEMORY += size
         return True
@@ -1570,7 +1719,7 @@ def unpin_memory(tensor):
         logging.warning("Size of pinned tensor changed")
         return False
 
-    if torch.cuda.cudart().cudaHostUnregister(ptr) == 0:
+    if host_unregister(ptr) == 0:
         size = PINNED_MEMORY.pop(ptr)
         TOTAL_PINNED_MEMORY -= size
         return True
