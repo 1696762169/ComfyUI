@@ -3,6 +3,7 @@ from typing import Type, Literal
 import nodes
 import asyncio
 import inspect
+import traceback
 from comfy_execution.graph_utils import is_link, ExecutionBlocker
 from comfy.comfy_types.node_typing import ComfyNodeABC, InputTypeDict, InputTypeOptions
 
@@ -263,7 +264,25 @@ class ExecutionList(TopologicalSort):
             }
             return None, error_details, ex
 
-        self.staged_node_id = self.ux_friendly_pick_node(available)
+        try:
+            self.staged_node_id = self.ux_friendly_pick_node(available)
+        except Exception as ex:
+            # Picking a node is a scheduling heuristic that inspects node
+            # definitions; a malformed custom node must not crash the prompt
+            # worker thread silently. Blame an available node and surface the
+            # error to the frontend like any other execution error.
+            blamed_node = self.dynprompt.get_display_node_id(available[0])
+            exception_type = type(ex).__qualname__
+            if type(ex).__module__ != "builtins":
+                exception_type = type(ex).__module__ + "." + exception_type
+            error_details = {
+                "node_id": blamed_node,
+                "exception_message": str(ex),
+                "exception_type": exception_type,
+                "traceback": traceback.format_tb(ex.__traceback__),
+                "current_inputs": []
+            }
+            return None, error_details, ex
         return self.staged_node_id, None, None
 
     def ux_friendly_pick_node(self, node_list):
@@ -283,7 +302,17 @@ class ExecutionList(TopologicalSort):
         def is_async(node_id):
             class_type = self.dynprompt.get_node(node_id)["class_type"]
             class_def = nodes.NODE_CLASS_MAPPINGS[class_type]
-            return inspect.iscoroutinefunction(getattr(class_def, class_def.FUNCTION))
+            # A malformed node (e.g. FUNCTION pointing at a method that does not
+            # exist because of a typo) must not crash scheduling here. Treat it as
+            # non-async so it proceeds to normal execution, where the missing
+            # method raises an error that is caught and reported to the frontend.
+            function_name = getattr(class_def, "FUNCTION", None)
+            if function_name is None:
+                return False
+            func = getattr(class_def, function_name, None)
+            if func is None:
+                return False
+            return inspect.iscoroutinefunction(func)
 
         for node_id in node_list:
             if is_output(node_id) or is_async(node_id):
