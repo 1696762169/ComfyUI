@@ -124,7 +124,7 @@ class PhotoMakerLoader(io.ComfyNode):
         return io.Schema(
             node_id="PhotoMakerLoader",
             display_name="Load PhotoMaker Model",
-            category="model/loader",
+            category="model/loaders",
             inputs=[
                 io.Combo.Input("photomaker_model_name", options=folder_paths.get_filename_list("photomaker")),
             ],
