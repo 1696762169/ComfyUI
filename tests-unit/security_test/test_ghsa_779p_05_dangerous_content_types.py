@@ -5,13 +5,18 @@ blocklist covered text/html, text/javascript, etc. but was missing
 image/svg+xml, so an uploaded SVG carrying an inline <script> was served as
 image/svg+xml and executed in the page origin when rendered.
 
-The /view forced-download decision lives in a closure inside
-server.PromptServer.add_routes (server.py ~line 624), which checks
-`content_type in folder_paths.DANGEROUS_CONTENT_TYPES` and, on a match, rewrites
-the response to application/octet-stream with a Content-Disposition: attachment
-header. server.py cannot be imported in a unit test (importing it spins up the
-full PromptServer/aiohttp app and its global side effects), so these tests pin
-the *data* that drives the closure: folder_paths.DANGEROUS_CONTENT_TYPES.
+The /view forced-download decision lives in the view_image closure registered by
+server.PromptServer.add_routes (server.py ~line 596), which calls
+`folder_paths.is_dangerous_content_type(content_type)` — a normalising check that
+strips charset/boundary parameters and casing and folds in the whole */xml and
+*+xml dialect family — rather than a bypassable raw
+`content_type in folder_paths.DANGEROUS_CONTENT_TYPES` membership test. On a match
+it rewrites the response to application/octet-stream with a
+Content-Disposition: attachment header. server.py cannot be imported in a unit
+test (importing it spins up the full PromptServer/aiohttp app and its global side
+effects), so these tests pin the underlying dangerous-content data
+(folder_paths.DANGEROUS_CONTENT_TYPES) and the normalising is_dangerous_content_type()
+helper that the closure actually calls.
 
 The end-to-end /view assertion (upload an SVG, GET /view, confirm the response
 is not served as image/svg+xml) lives in the live POC at

@@ -87,8 +87,14 @@ def test_is_within_directory_symlink_escape(sandbox):
         f.write("top secret")
 
     # Plant a symlink inside base that points at the outside directory.
+    # symlink creation can require elevated privileges / Developer Mode on
+    # Windows, so skip cleanly where it isn't available (same guard as the
+    # sibling test in test_ghsa_779p_02_preview_traversal.py).
     link = os.path.join(base, "escape_link")
-    os.symlink(outside, link)
+    try:
+        os.symlink(outside, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported on this platform/filesystem")
 
     # Accessing the secret "through" the in-base symlink must be rejected.
     target_via_link = os.path.join(link, "secret.txt")
