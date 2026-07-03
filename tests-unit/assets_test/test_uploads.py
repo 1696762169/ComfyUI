@@ -233,15 +233,13 @@ def test_upload_multiple_tags_fields_are_merged(http: requests.Session, api_base
     (
         "tags",
         "extension",
-        "expected_prefix",
         "expected_display_prefix",
     ),
     [
-        (["input", "unit-tests"], ".png", "input", ""),
+        (["input", "unit-tests"], ".png", ""),
         (
             ["models", "model_type:checkpoints", "unit-tests"],
             ".safetensors",
-            "models/checkpoints",
             "checkpoints/",
         ),
     ],
@@ -249,7 +247,6 @@ def test_upload_multiple_tags_fields_are_merged(http: requests.Session, api_base
 def test_upload_response_includes_loader_path_and_display_name(
     tags: list[str],
     extension: str,
-    expected_prefix: str,
     expected_display_prefix: str,
     http: requests.Session,
     api_base: str,
@@ -270,20 +267,18 @@ def test_upload_response_includes_loader_path_and_display_name(
     assert created_r.status_code in (200, 201), created
     stored_filename = get_asset_filename(created["asset_hash"], extension)
     expected_suffix = stored_filename
-    expected_logical_path = f"{expected_prefix}/{expected_suffix}"
     expected_display_name = f"{expected_display_prefix}{expected_suffix}"
     # In-root loader path: model category dropped, no subfolders here -> just the filename.
     expected_loader_path = expected_suffix
 
     assert created["loader_path"] == expected_loader_path
-    assert created["logical_path"] == expected_logical_path
     assert created["display_name"] == expected_display_name
+    assert "logical_path" not in created
 
     detail_r = http.get(f"{api_base}/api/assets/{created['id']}", timeout=120)
     detail = detail_r.json()
     assert detail_r.status_code == 200, detail
     assert detail["loader_path"] == expected_loader_path
-    assert detail["logical_path"] == expected_logical_path
     assert detail["display_name"] == expected_display_name
 
     list_r = http.get(
@@ -295,7 +290,6 @@ def test_upload_response_includes_loader_path_and_display_name(
     assert list_r.status_code == 200, listed
     match = next(a for a in listed["assets"] if a["id"] == created["id"])
     assert match["loader_path"] == expected_loader_path
-    assert match["logical_path"] == expected_logical_path
     assert match["display_name"] == expected_display_name
 
 

@@ -69,7 +69,6 @@ def test_falls_back_to_compute_when_stored_loader_path_is_null(tmp_path: Path):
         resp = _build_asset_response(result)
 
         assert resp.loader_path == "bar.safetensors"
-        assert resp.logical_path == "models/checkpoints/bar.safetensors"
         assert resp.display_name == "checkpoints/bar.safetensors"
 
 
@@ -80,5 +79,4 @@ def test_all_path_fields_null_without_file_path():
     resp = _build_asset_response(result)
 
     assert resp.loader_path is None
-    assert resp.logical_path is None
     assert resp.display_name is None

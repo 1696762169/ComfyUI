@@ -84,11 +84,14 @@ def _is_relative_to(child: str, parent: str) -> bool:
 
 
 def compute_asset_response_paths(file_path: str) -> tuple[str, str | None] | None:
-    """Return public (file_path, display_name) response fields for a file path.
+    """Return (logical_path, display_name) for a file path.
 
-    These fields are storage locators, not model-loader namespaces. Registered
-    model-folder membership is represented by backend tags such as
-    ``model_type:<folder_name>``; response paths only use known storage roots.
+    ``logical_path`` is the internal namespaced storage locator (e.g.
+    ``models/checkpoints/foo/bar.safetensors``); ``display_name`` is the
+    human-facing label below that namespace, served on Asset responses. These
+    are storage locators, not model-loader namespaces. Registered model-folder
+    membership is represented by backend tags such as
+    ``model_type:<folder_name>``; these paths only use known storage roots.
     """
     fp_abs = os.path.abspath(file_path)
     candidates: list[tuple[int, int, str, str]] = []
@@ -123,7 +126,7 @@ def compute_display_name(file_path: str) -> str | None:
 
 
 def compute_logical_path(file_path: str) -> str | None:
-    """Return the asset's namespaced storage `logical_path`, or None for unknown paths."""
+    """Return the internal namespaced storage locator, or None for unknown paths."""
     result = compute_asset_response_paths(file_path)
     return result[0] if result else None
 
@@ -136,9 +139,9 @@ def compute_loader_path(file_path: str) -> str | None:
       /.../models/text_encoders/clip_g.safetensors -> "clip_g.safetensors"
 
     This is the value model loaders consume (the model category is dropped). It
-    backs the public Asset response `file_path` field and the internal
-    ``computed_filename`` metadata. The namespaced storage locator (`logical_path`)
-    and human-facing `display_name` come from compute_asset_response_paths().
+    is persisted as ``AssetReference.loader_path`` and served as the public
+    Asset response `loader_path` field. The human-facing `display_name` comes
+    from compute_asset_response_paths().
 
     For input/output/temp paths the full path relative to that root is returned.
     For paths outside any known root, returns None.
