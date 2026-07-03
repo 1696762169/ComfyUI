@@ -25,7 +25,10 @@ def is_loopback(host):
             return True
         else:
             return False
-    except:
+    except ValueError:
+        # Not an IP literal (ip_address raises ValueError); fall through to DNS
+        # resolution below. Narrowed from a bare except so genuine interrupts
+        # (KeyboardInterrupt/SystemExit) aren't swallowed.
         pass
 
     loopback = False
@@ -64,11 +67,21 @@ def is_cross_origin_forbidden(host, origin):
     origin_domain = parsed.netloc.lower()
     host_domain_parsed = urllib.parse.urlsplit('//' + host_domain)
 
+    # A non-numeric or out-of-range port (e.g. Origin: http://127.0.0.1:99999)
+    # makes urllib raise ValueError on .port access. Treat a malformed port as a
+    # rejected request rather than letting it surface as an uncaught 500 in the
+    # middleware — it fails closed, consistent with the CSRF stance.
+    try:
+        origin_port = parsed.port
+        host_port = host_domain_parsed.port
+    except ValueError:
+        return True
+
     loopback = is_loopback(host_domain_parsed.hostname)
 
-    if parsed.port is None:  # if origin doesn't have a port strip it from the host to handle weird browsers, same for host
+    if origin_port is None:  # if origin doesn't have a port strip it from the host to handle weird browsers, same for host
         host_domain = host_domain_parsed.hostname
-    if host_domain_parsed.port is None:
+    if host_port is None:
         origin_domain = parsed.hostname
 
     if loopback and host_domain is not None and len(host_domain) > 0:

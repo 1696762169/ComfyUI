@@ -587,10 +587,15 @@ class PromptServer():
                         # bare filename= hint does not force a download per
                         # RFC 6266, so we only attach it on the dangerous branch
                         # to avoid breaking inline display of legitimate images.
-                        disposition = f"filename=\"{filename}\""
+                        # Escape backslash/quote per RFC 6266 quoted-string so a
+                        # filename containing a double quote (which passes the
+                        # ".."/leading-slash filter above) can't break out of the
+                        # header's quoted-string and malform the disposition.
+                        safe_filename = filename.replace("\\", "\\\\").replace('"', '\\"')
+                        disposition = f"filename=\"{safe_filename}\""
                         if folder_paths.is_dangerous_content_type(content_type):
                             content_type = 'application/octet-stream'
-                            disposition = f"attachment; filename=\"{filename}\""
+                            disposition = f"attachment; filename=\"{safe_filename}\""
 
                         return web.FileResponse(
                             file,
