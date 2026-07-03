@@ -23,6 +23,8 @@ import json
 import glob
 import struct
 import ssl
+import socket
+import ipaddress
 from PIL import Image, ImageOps
 from PIL.PngImagePlugin import PngInfo
 from io import BytesIO
@@ -38,7 +40,6 @@ import comfy.utils
 import comfy.model_management
 from comfy_api import feature_flags
 import node_helpers
-from utils.origin_check import is_cross_origin_forbidden
 from comfyui_version import __version__
 from app.frontend_management import FrontendManager, parse_version
 from comfy_api.internal import _ComfyNodeInternal
@@ -126,6 +127,33 @@ def create_cors_middleware(allowed_origin: str):
 
     return cors_middleware
 
+
+def is_loopback(host):
+    if host is None:
+        return False
+    try:
+        if ipaddress.ip_address(host).is_loopback:
+            return True
+        else:
+            return False
+    except:
+        pass
+
+    loopback = False
+    for family in (socket.AF_INET, socket.AF_INET6):
+        try:
+            r = socket.getaddrinfo(host, None, family, socket.SOCK_STREAM)
+            for family, _, _, _, sockaddr in r:
+                if not ipaddress.ip_address(sockaddr[0]).is_loopback:
+                    return loopback
+                else:
+                    loopback = True
+        except socket.gaierror:
+            pass
+
+    return loopback
+
+
 def create_origin_only_middleware():
     @web.middleware
     async def origin_only_middleware(request: web.Request, handler):
@@ -139,13 +167,23 @@ def create_origin_only_middleware():
         if 'Host' in request.headers and 'Origin' in request.headers:
             host = request.headers['Host']
             origin = request.headers['Origin']
-            # The host/origin CSRF decision (incl. the Origin: null bypass fix
-            # for GHSA-779p-m5rp-r4h4 #1) lives in utils.origin_check so it can
-            # be unit-tested without standing up the full server. See
-            # tests-unit/security_test/test_ghsa_779p_01_origin_csrf.py.
-            if is_cross_origin_forbidden(host, origin):
-                logging.warning("WARNING: request with non matching host and origin, returning 403 (host={!r} origin={!r})".format(host, origin))
-                return web.Response(status=403)
+            host_domain = host.lower()
+            parsed = urllib.parse.urlparse(origin)
+            origin_domain = parsed.netloc.lower()
+            host_domain_parsed = urllib.parse.urlsplit('//' + host_domain)
+
+            #limit the check to when the host domain is localhost, this makes it slightly less safe but should still prevent the exploit
+            loopback = is_loopback(host_domain_parsed.hostname)
+
+            if parsed.port is None: #if origin doesn't have a port strip it from the host to handle weird browsers, same for host
+                host_domain = host_domain_parsed.hostname
+            if host_domain_parsed.port is None:
+                origin_domain = parsed.hostname
+
+            if loopback and host_domain is not None and origin_domain is not None and len(host_domain) > 0 and len(origin_domain) > 0:
+                if host_domain != origin_domain:
+                    logging.warning("WARNING: request with non matching host and origin {} != {}, returning 403".format(host_domain, origin_domain))
+                    return web.Response(status=403)
 
         if request.method == "OPTIONS":
             response = web.Response()
