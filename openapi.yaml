@@ -775,6 +775,14 @@ components:
         ModelFolder:
             description: Represents a folder containing models
             properties:
+                extensions:
+                    description: 'Effective file-extension display filter for this folder: the registered extension set, or the global supported model extensions for folders registered without one (match-all). Resolved live, so runtime registrations by custom nodes are reflected.'
+                    example:
+                        - .ckpt
+                        - .safetensors
+                    items:
+                        type: string
+                    type: array
                 folders:
                     description: List of paths where models of this type are stored
                     example:

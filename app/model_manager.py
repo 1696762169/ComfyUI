@@ -35,7 +35,17 @@ class ModelFileManager:
             for folder in model_types:
                 if folder in folder_black_list:
                     continue
-                output_folders.append({"name": folder, "folders": folder_paths.get_folder_paths(folder)})
+                # Effective display filter: the folder's registered extension
+                # set, or the global supported_pt_extensions for match-all
+                # folders (empty set), resolved live so runtime registrations
+                # by custom nodes are reflected.
+                registered = folder_paths.folder_names_and_paths[folder][1]
+                effective = set(registered) if registered else set(folder_paths.supported_pt_extensions)
+                output_folders.append({
+                    "name": folder,
+                    "folders": folder_paths.get_folder_paths(folder),
+                    "extensions": sorted(effective),
+                })
             return web.json_response(output_folders)
 
         # NOTE: This is an experiment to replace `/models/{folder}`
