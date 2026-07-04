@@ -10,6 +10,14 @@ homepage = "https://www.comfy.org/"
 repository = "https://github.com/comfyanonymous/ComfyUI"
 documentation = "https://docs.comfy.org/"
 
+# ---- PyTorch CUDA 配置 ----
+# 默认 PyPI 只有 CPU 版 torch。以下索引指向 CUDA 13.0 版 PyTorch wheel，
+# uv pip install 时会自动搜索该索引，确保始终安装 CUDA 版而非 CPU 版。
+# 注意：若重新创建 venv，请先确认该索引可访问。
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://mirrors.aliyun.com/pytorch-wheels/cu130/"
+
 [tool.ruff]
 lint.select = [
   "N805", # invalid-first-argument-name-for-method
