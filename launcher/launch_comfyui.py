@@ -39,6 +39,7 @@ def start_server() -> subprocess.Popen:
     """启动 ComfyUI 服务器。"""
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
+    env["TQDM_DISABLE"] = "1"
     return subprocess.Popen(
         [str(PYTHON_EXE), "main.py", "--listen", "127.0.0.1", "--port", "8188"],
         cwd=str(COMFYUI_ROOT),
