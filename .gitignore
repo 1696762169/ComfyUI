@@ -30,3 +30,4 @@ web_custom_versions/
 filtered-openapi.yaml
 uv.lock
 .comfy_environment
+comfyui-mcp/
