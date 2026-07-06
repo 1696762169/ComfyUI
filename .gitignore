@@ -17,7 +17,13 @@ venv*/
 !/web/extensions/logging.js.example
 !/web/extensions/core/
 /tests-ui/data/object_info.json
-/user/
+# 用户运行时数据默认忽略，但保留个人工作流
+/user/*
+!/user/default/
+/user/default/*
+!/user/default/workflows/
+/user/default/workflows/*
+!/user/default/workflows/*.json
 *.log
 web_custom_versions/
 .DS_Store
