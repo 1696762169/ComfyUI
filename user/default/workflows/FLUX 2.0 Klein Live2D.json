@@ -1,923 +1,923 @@
 {
-    "id": "7619f5ea-8748-4ad1-95c9-773674c8f874",
-    "revision": 0,
-    "last_node_id": 14,
-    "last_link_id": 13,
-    "nodes": [
+  "id": "7619f5ea-8748-4ad1-95c9-773674c8f874",
+  "revision": 0,
+  "last_node_id": 14,
+  "last_link_id": 13,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -240,
+        -100
+      ],
+      "size": [
+        320,
+        110
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
         {
-            "id": 1,
-            "type": "UNETLoader",
-            "pos": [
-                -240,
-                -100
-            ],
-            "size": [
-                320,
-                110
-            ],
-            "flags": {},
-            "order": 0,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "UNet名称",
-                    "name": "unet_name",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "unet_name"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "数据类型",
-                    "name": "weight_dtype",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "weight_dtype"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "模型",
-                    "name": "MODEL",
-                    "type": "MODEL",
-                    "slot_index": 0,
-                    "links": [
-                        5
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "UNETLoader",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                "flux-2-klein-9b.safetensors",
-                "fp8_e4m3fn"
-            ]
+          "localized_name": "UNet名称",
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
         },
         {
-            "id": 2,
-            "type": "CLIPLoader",
-            "pos": [
-                -240,
-                50
-            ],
-            "size": [
-                320,
-                140
-            ],
-            "flags": {},
-            "order": 1,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "CLIP名称",
-                    "name": "clip_name",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "clip_name"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "类型",
-                    "name": "type",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "type"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "设备",
-                    "name": "device",
-                    "shape": 7,
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "device"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "CLIP",
-                    "name": "CLIP",
-                    "type": "CLIP",
-                    "slot_index": 0,
-                    "links": [
-                        1
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "CLIPLoader",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                "qwen_3_8b_fp8mixed.safetensors",
-                "flux2",
-                "default"
-            ]
-        },
-        {
-            "id": 3,
-            "type": "VAELoader",
-            "pos": [
-                -240,
-                220
-            ],
-            "size": [
-                320,
-                80
-            ],
-            "flags": {},
-            "order": 2,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "vae名称",
-                    "name": "vae_name",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "vae_name"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "VAE",
-                    "name": "VAE",
-                    "type": "VAE",
-                    "slot_index": 0,
-                    "links": [
-                        4,
-                        12
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "VAELoader",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                "flux2-vae.safetensors"
-            ]
-        },
-        {
-            "id": 4,
-            "type": "CLIPTextEncode",
-            "pos": [
-                150,
-                50
-            ],
-            "size": [
-                400,
-                200
-            ],
-            "flags": {},
-            "order": 7,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "clip",
-                    "name": "clip",
-                    "type": "CLIP",
-                    "link": 1
-                },
-                {
-                    "localized_name": "文本",
-                    "name": "text",
-                    "type": "STRING",
-                    "widget": {
-                        "name": "text"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "条件",
-                    "name": "CONDITIONING",
-                    "type": "CONDITIONING",
-                    "slot_index": 0,
-                    "links": [
-                        2
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "CLIPTextEncode",
-                "ue_properties": {
-                    "widget_ue_connectable": {
-                        "text": true
-                    },
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                "full body front view character design, standing pose, anime style, flat color, cel shading, clean bold lineart, pure white background, simple background, no shadow, no gradient, no 3d, bright colors, symmetrical composition, 1girl, short hair, school uniform, looking at viewer, live2d ready"
-            ]
-        },
-        {
-            "id": 5,
-            "type": "FluxGuidance",
-            "pos": [
-                620,
-                50
-            ],
-            "size": [
-                320,
-                80
-            ],
-            "flags": {},
-            "order": 9,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "条件",
-                    "name": "conditioning",
-                    "type": "CONDITIONING",
-                    "link": 2
-                },
-                {
-                    "localized_name": "引导",
-                    "name": "guidance",
-                    "type": "FLOAT",
-                    "widget": {
-                        "name": "guidance"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "条件",
-                    "name": "CONDITIONING",
-                    "type": "CONDITIONING",
-                    "slot_index": 0,
-                    "links": [
-                        3
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "FluxGuidance",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                3.5
-            ]
-        },
-        {
-            "id": 6,
-            "type": "BasicGuider",
-            "pos": [
-                620,
-                180
-            ],
-            "size": [
-                250,
-                80
-            ],
-            "flags": {},
-            "order": 10,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "模型",
-                    "name": "model",
-                    "type": "MODEL",
-                    "link": 5
-                },
-                {
-                    "localized_name": "条件",
-                    "name": "conditioning",
-                    "type": "CONDITIONING",
-                    "link": 3
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "引导器",
-                    "name": "GUIDER",
-                    "type": "GUIDER",
-                    "slot_index": 0,
-                    "links": [
-                        6
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "BasicGuider",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": []
-        },
-        {
-            "id": 7,
-            "type": "RandomNoise",
-            "pos": [
-                620,
-                310
-            ],
-            "size": [
-                250,
-                90
-            ],
-            "flags": {},
-            "order": 3,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "噪波随机种",
-                    "name": "noise_seed",
-                    "type": "INT",
-                    "widget": {
-                        "name": "noise_seed"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "control_after_generate",
-                    "name": "control_after_generate",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "control_after_generate"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "噪波",
-                    "name": "NOISE",
-                    "type": "NOISE",
-                    "slot_index": 0,
-                    "links": [
-                        7
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "RandomNoise",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                786744604237697,
-                "randomize"
-            ]
-        },
-        {
-            "id": 8,
-            "type": "KSamplerSelect",
-            "pos": [
-                620,
-                440
-            ],
-            "size": [
-                250,
-                80
-            ],
-            "flags": {},
-            "order": 4,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "采样器名称",
-                    "name": "sampler_name",
-                    "type": "COMBO",
-                    "widget": {
-                        "name": "sampler_name"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "采样器",
-                    "name": "SAMPLER",
-                    "type": "SAMPLER",
-                    "slot_index": 0,
-                    "links": [
-                        8
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "KSamplerSelect",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                "euler"
-            ]
-        },
-        {
-            "id": 9,
-            "type": "Flux2Scheduler",
-            "pos": [
-                620,
-                570
-            ],
-            "size": [
-                250,
-                150
-            ],
-            "flags": {},
-            "order": 5,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "步数",
-                    "name": "steps",
-                    "type": "INT",
-                    "widget": {
-                        "name": "steps"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "宽度",
-                    "name": "width",
-                    "type": "INT",
-                    "widget": {
-                        "name": "width"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "高度",
-                    "name": "height",
-                    "type": "INT",
-                    "widget": {
-                        "name": "height"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "Sigmas",
-                    "name": "SIGMAS",
-                    "type": "SIGMAS",
-                    "slot_index": 0,
-                    "links": [
-                        9
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "Flux2Scheduler",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                4,
-                1024,
-                1536
-            ]
-        },
-        {
-            "id": 10,
-            "type": "EmptyFlux2LatentImage",
-            "pos": [
-                620,
-                730
-            ],
-            "size": [
-                250,
-                150
-            ],
-            "flags": {},
-            "order": 6,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "width",
-                    "name": "width",
-                    "type": "INT",
-                    "widget": {
-                        "name": "width"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "height",
-                    "name": "height",
-                    "type": "INT",
-                    "widget": {
-                        "name": "height"
-                    },
-                    "link": null
-                },
-                {
-                    "localized_name": "batch_size",
-                    "name": "batch_size",
-                    "type": "INT",
-                    "widget": {
-                        "name": "batch_size"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "Latent",
-                    "name": "LATENT",
-                    "type": "LATENT",
-                    "slot_index": 0,
-                    "links": [
-                        10
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "EmptyFlux2LatentImage",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                1024,
-                1536,
-                1
-            ]
-        },
-        {
-            "id": 11,
-            "type": "SamplerCustomAdvanced",
-            "pos": [
-                980,
-                300
-            ],
-            "size": [
-                280,
-                391.515625
-            ],
-            "flags": {},
-            "order": 11,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "噪波",
-                    "name": "noise",
-                    "type": "NOISE",
-                    "link": 7
-                },
-                {
-                    "localized_name": "引导器",
-                    "name": "guider",
-                    "type": "GUIDER",
-                    "link": 6
-                },
-                {
-                    "localized_name": "采样器",
-                    "name": "sampler",
-                    "type": "SAMPLER",
-                    "link": 8
-                },
-                {
-                    "localized_name": "西格玛",
-                    "name": "sigmas",
-                    "type": "SIGMAS",
-                    "link": 9
-                },
-                {
-                    "localized_name": "Latent图像",
-                    "name": "latent_image",
-                    "type": "LATENT",
-                    "link": 10
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "Latent",
-                    "name": "output",
-                    "type": "LATENT",
-                    "slot_index": 0,
-                    "links": [
-                        11
-                    ]
-                },
-                {
-                    "localized_name": "降噪Latent",
-                    "name": "denoised_output",
-                    "type": "LATENT",
-                    "slot_index": 1,
-                    "links": null
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "SamplerCustomAdvanced",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": []
-        },
-        {
-            "id": 12,
-            "type": "VAEDecode",
-            "pos": [
-                1340,
-                300
-            ],
-            "size": [
-                230,
-                80
-            ],
-            "flags": {},
-            "order": 12,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "Latent",
-                    "name": "samples",
-                    "type": "LATENT",
-                    "link": 11
-                },
-                {
-                    "localized_name": "vae",
-                    "name": "vae",
-                    "type": "VAE",
-                    "link": 4
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "图像",
-                    "name": "IMAGE",
-                    "type": "IMAGE",
-                    "slot_index": 0,
-                    "links": [
-                        12,
-                        13
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "VAEDecode",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": []
-        },
-        {
-            "id": 13,
-            "type": "PreviewImage",
-            "pos": [
-                1640,
-                250
-            ],
-            "size": [
-                320,
-                280
-            ],
-            "flags": {},
-            "order": 8,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "图像",
-                    "name": "images",
-                    "type": "IMAGE",
-                    "link": 12
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "images",
-                    "name": "images",
-                    "type": "IMAGE",
-                    "slot_index": 0,
-                    "links": null
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "PreviewImage",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": []
-        },
-        {
-            "id": 14,
-            "type": "SaveImage",
-            "pos": [
-                1640,
-                600
-            ],
-            "size": [
-                320,
-                315.515625
-            ],
-            "flags": {},
-            "order": 13,
-            "mode": 0,
-            "inputs": [
-                {
-                    "localized_name": "图片",
-                    "name": "images",
-                    "type": "IMAGE",
-                    "link": 13
-                },
-                {
-                    "localized_name": "文件名前缀",
-                    "name": "filename_prefix",
-                    "type": "STRING",
-                    "widget": {
-                        "name": "filename_prefix"
-                    },
-                    "link": null
-                }
-            ],
-            "outputs": [
-                {
-                    "localized_name": "images",
-                    "name": "images",
-                    "type": "IMAGE",
-                    "slot_index": 0,
-                    "links": null
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "SaveImage",
-                "ue_properties": {
-                    "widget_ue_connectable": {},
-                    "version": "7.7",
-                    "input_ue_unconnectable": {}
-                }
-            },
-            "widgets_values": [
-                "FLUX2_Klein_Live2D"
-            ]
+          "localized_name": "数据类型",
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "weight_dtype"
+          },
+          "link": null
         }
-    ],
-    "links": [
-        [
-            1,
-            2,
-            0,
-            4,
-            0,
-            "CLIP"
-        ],
-        [
-            2,
-            4,
-            0,
-            5,
-            0,
-            "CONDITIONING"
-        ],
-        [
-            3,
-            5,
-            0,
-            6,
-            1,
-            "CONDITIONING"
-        ],
-        [
-            4,
-            3,
-            0,
-            12,
-            1,
-            "VAE"
-        ],
-        [
-            5,
-            1,
-            0,
-            6,
-            0,
-            "MODEL"
-        ],
-        [
-            6,
-            6,
-            0,
-            11,
-            1,
-            "GUIDER"
-        ],
-        [
-            7,
-            7,
-            0,
-            11,
-            0,
-            "NOISE"
-        ],
-        [
-            8,
-            8,
-            0,
-            11,
-            2,
-            "SAMPLER"
-        ],
-        [
-            9,
-            9,
-            0,
-            11,
-            3,
-            "SIGMAS"
-        ],
-        [
-            10,
-            10,
-            0,
-            11,
-            4,
-            "LATENT"
-        ],
-        [
-            11,
-            11,
-            0,
-            12,
-            0,
-            "LATENT"
-        ],
-        [
-            12,
-            12,
-            0,
-            13,
-            0,
-            "IMAGE"
-        ],
-        [
-            13,
-            12,
-            0,
-            14,
-            0,
-            "IMAGE"
-        ]
-    ],
-    "groups": [],
-    "config": {},
-    "extra": {
-        "ds": {
-            "scale": 0.40980807321904317,
-            "offset": [
-                1334.352586155637,
-                842.4907804011689
-            ]
-        },
-        "workflowRendererVersion": "Vue-corrected",
-        "ue_links": [],
-        "links_added_by_ue": []
+      ],
+      "outputs": [
+        {
+          "localized_name": "模型",
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "flux-2-klein-9b.safetensors",
+        "fp8_e4m3fn"
+      ]
     },
-    "version": 0.4
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        -240,
+        50
+      ],
+      "size": [
+        320,
+        140
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "CLIP名称",
+          "name": "clip_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "类型",
+          "name": "type",
+          "type": "COMBO",
+          "widget": {
+            "name": "type"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "设备",
+          "name": "device",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CLIP",
+          "name": "CLIP",
+          "type": "CLIP",
+          "slot_index": 0,
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "qwen_3_8b_fp8mixed.safetensors",
+        "flux2",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        -240,
+        220
+      ],
+      "size": [
+        320,
+        80
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "vae名称",
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "VAE",
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            4,
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "flux2-vae.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "pos": [
+        150,
+        50
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 1
+        },
+        {
+          "localized_name": "文本",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "条件",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "text": true
+          },
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "full body front view character design, standing pose, anime style, flat color, cel shading, clean bold lineart, pure white background, simple background, no shadow, no gradient, no 3d, bright colors, symmetrical composition, 1girl, short hair, school uniform, looking at viewer, live2d ready"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "FluxGuidance",
+      "pos": [
+        620,
+        50
+      ],
+      "size": [
+        320,
+        80
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "条件",
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 2
+        },
+        {
+          "localized_name": "引导",
+          "name": "guidance",
+          "type": "FLOAT",
+          "widget": {
+            "name": "guidance"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "条件",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FluxGuidance",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        3.5
+      ]
+    },
+    {
+      "id": 6,
+      "type": "BasicGuider",
+      "pos": [
+        620,
+        180
+      ],
+      "size": [
+        250,
+        80
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "模型",
+          "name": "model",
+          "type": "MODEL",
+          "link": 5
+        },
+        {
+          "localized_name": "条件",
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "引导器",
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "slot_index": 0,
+          "links": [
+            6
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicGuider",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "RandomNoise",
+      "pos": [
+        620,
+        310
+      ],
+      "size": [
+        250,
+        90
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "噪波随机种",
+          "name": "noise_seed",
+          "type": "INT",
+          "widget": {
+            "name": "noise_seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "control_after_generate",
+          "name": "control_after_generate",
+          "type": "COMBO",
+          "widget": {
+            "name": "control_after_generate"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "噪波",
+          "name": "NOISE",
+          "type": "NOISE",
+          "slot_index": 0,
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RandomNoise",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        786744604237697,
+        "randomize"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "KSamplerSelect",
+      "pos": [
+        620,
+        440
+      ],
+      "size": [
+        250,
+        80
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "采样器名称",
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "采样器",
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "slot_index": 0,
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerSelect",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "Flux2Scheduler",
+      "pos": [
+        620,
+        570
+      ],
+      "size": [
+        250,
+        150
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "步数",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "宽度",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "高度",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "Sigmas",
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "slot_index": 0,
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Flux2Scheduler",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        4,
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": 10,
+      "type": "EmptyFlux2LatentImage",
+      "pos": [
+        620,
+        730
+      ],
+      "size": [
+        250,
+        150
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "batch_size",
+          "name": "batch_size",
+          "type": "INT",
+          "widget": {
+            "name": "batch_size"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "Latent",
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyFlux2LatentImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        1024,
+        1536,
+        1
+      ]
+    },
+    {
+      "id": 11,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        980,
+        300
+      ],
+      "size": [
+        280,
+        391.515625
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "噪波",
+          "name": "noise",
+          "type": "NOISE",
+          "link": 7
+        },
+        {
+          "localized_name": "引导器",
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 6
+        },
+        {
+          "localized_name": "采样器",
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 8
+        },
+        {
+          "localized_name": "西格玛",
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 9
+        },
+        {
+          "localized_name": "Latent图像",
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "Latent",
+          "name": "output",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            11
+          ]
+        },
+        {
+          "localized_name": "降噪Latent",
+          "name": "denoised_output",
+          "type": "LATENT",
+          "slot_index": 1,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 12,
+      "type": "VAEDecode",
+      "pos": [
+        1340,
+        300
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "Latent",
+          "name": "samples",
+          "type": "LATENT",
+          "link": 11
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "图像",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            12,
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "PreviewImage",
+      "pos": [
+        1640,
+        250
+      ],
+      "size": [
+        320,
+        280
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "图像",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 14,
+      "type": "SaveImage",
+      "pos": [
+        1640,
+        600
+      ],
+      "size": [
+        320,
+        315.515625
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "图片",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "localized_name": "文件名前缀",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.7",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "FLUX2_Klein_Live2D"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      4,
+      0,
+      "CLIP"
+    ],
+    [
+      2,
+      4,
+      0,
+      5,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      3,
+      5,
+      0,
+      6,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      4,
+      3,
+      0,
+      12,
+      1,
+      "VAE"
+    ],
+    [
+      5,
+      1,
+      0,
+      6,
+      0,
+      "MODEL"
+    ],
+    [
+      6,
+      6,
+      0,
+      11,
+      1,
+      "GUIDER"
+    ],
+    [
+      7,
+      7,
+      0,
+      11,
+      0,
+      "NOISE"
+    ],
+    [
+      8,
+      8,
+      0,
+      11,
+      2,
+      "SAMPLER"
+    ],
+    [
+      9,
+      9,
+      0,
+      11,
+      3,
+      "SIGMAS"
+    ],
+    [
+      10,
+      10,
+      0,
+      11,
+      4,
+      "LATENT"
+    ],
+    [
+      11,
+      11,
+      0,
+      12,
+      0,
+      "LATENT"
+    ],
+    [
+      12,
+      12,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      12,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.40980807321904317,
+      "offset": [
+        1334.352586155637,
+        842.4907804011689
+      ]
+    },
+    "workflowRendererVersion": "Vue-corrected",
+    "ue_links": [],
+    "links_added_by_ue": []
+  },
+  "version": 0.4
 }
