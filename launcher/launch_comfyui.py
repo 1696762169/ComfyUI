@@ -33,19 +33,21 @@ PYTHON_EXE = (
 )
 SERVER_URL = "http://127.0.0.1:8188"
 HEALTH_URL = f"{SERVER_URL}/system_stats"
+SERVER_LOG = COMFYUI_ROOT / "user" / "comfyui_launcher.log"
 
 
 def start_server() -> subprocess.Popen:
-    """启动 ComfyUI 服务器。"""
+    """启动 ComfyUI 服务器，输出写入日志文件避免管道阻塞。"""
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     env["TQDM_DISABLE"] = "1"
+    # 以覆写模式打开日志文件，确保每次启动都是新的日志
+    log_file = SERVER_LOG.open("w", encoding="utf-8")
     return subprocess.Popen(
         [str(PYTHON_EXE), "main.py", "--listen", "127.0.0.1", "--port", "8188", "--enable-manager"],
         cwd=str(COMFYUI_ROOT),
-        stdout=subprocess.PIPE,
+        stdout=log_file,
         stderr=subprocess.STDOUT,
-        text=True,
         env=env,
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
     )
@@ -93,12 +95,15 @@ def main() -> None:
     if not wait_for_server():
         logger.error("错误：服务器启动超时，请检查日志。")
 
-        # 读取并显示服务器输出的前几行
-        if proc.stdout:
-            out = proc.stdout.read()
-            if out:
-                logger.error("服务器输出（最后 2000 字符）：")
-                logger.error(out[-2000:])
+        # 读取并显示服务器日志的最后部分
+        if SERVER_LOG.is_file():
+            try:
+                out = SERVER_LOG.read_text(encoding="utf-8", errors="replace")
+                if out:
+                    logger.error("服务器输出（最后 2000 字符）：")
+                    logger.error(out[-2000:])
+            except Exception:
+                pass
 
         proc.kill()
         input("按 Enter 退出...")
