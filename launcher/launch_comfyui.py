@@ -41,7 +41,7 @@ def start_server() -> subprocess.Popen:
     env["PYTHONIOENCODING"] = "utf-8"
     env["TQDM_DISABLE"] = "1"
     return subprocess.Popen(
-        [str(PYTHON_EXE), "main.py", "--listen", "127.0.0.1", "--port", "8188"],
+        [str(PYTHON_EXE), "main.py", "--listen", "127.0.0.1", "--port", "8188", "--enable-manager"],
         cwd=str(COMFYUI_ROOT),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
